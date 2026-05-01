@@ -1,4 +1,5 @@
 # Typer CLI entrypoint for Stage 1 extraction command.
+"""Typer CLI interface for running Stage 1 structural extraction."""
 from __future__ import annotations
 
 import json
@@ -26,6 +27,7 @@ def extract_command(
     raw_output_dir: str | None = typer.Option(None, "--raw-output-dir"),
     max_input_chars: int = typer.Option(80000, "--max-input-chars"),
 ) -> None:
+    """Run extraction for one pipeline file and write validated JSON output."""
     load_dotenv()
 
     config = ExtractionConfig(
@@ -73,6 +75,7 @@ def extract_command(
 
 
 def main() -> None:
+    """Entrypoint used by the console script in pyproject."""
     app()
 
 

@@ -1,4 +1,5 @@
 # Technology-specific schema snippets injected into the shared extraction prompt.
+"""Technology-specific JSON schema fragments for prompt composition."""
 from __future__ import annotations
 
 from pipeline_qa_extractor.models import Technology
@@ -69,6 +70,7 @@ POSTGRES_DETAILS_SCHEMA = """
 
 
 def get_technology_detail_template(technology: Technology) -> str:
+    """Return the detail-schema fragment that matches the selected technology."""
     if technology == "databricks":
         return DATABRICKS_DETAILS_SCHEMA
     return POSTGRES_DETAILS_SCHEMA

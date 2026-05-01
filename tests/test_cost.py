@@ -1,8 +1,10 @@
 # Tests for OpenRouter usage extraction and estimated cost fallback logic.
+"""Unit tests for usage parsing and pricing-based cost fallback."""
 from pipeline_qa_extractor.cost import OpenRouterCostTracker
 
 
 def test_actual_cost_is_authoritative_when_present() -> None:
+    """Cost in response payload should be used directly when present."""
     tracker = OpenRouterCostTracker(model="openai/gpt-4.1-mini")
     usage = tracker.usage_from_response(
         {
@@ -20,6 +22,7 @@ def test_actual_cost_is_authoritative_when_present() -> None:
 
 
 def test_estimated_cost_from_models_api_when_cost_missing() -> None:
+    """Estimator should use model pricing when authoritative cost is absent."""
     tracker = OpenRouterCostTracker(model="openai/gpt-4.1-mini")
     usage = tracker.usage_from_response(
         {

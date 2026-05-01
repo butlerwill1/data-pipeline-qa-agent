@@ -1,4 +1,5 @@
 # OpenRouter client wrapper using OpenAI-compatible chat completions and model metadata fetch.
+"""OpenRouter API wrapper built on the OpenAI-compatible Python SDK."""
 from __future__ import annotations
 
 import json
@@ -14,12 +15,16 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 @dataclass
 class ChatResult:
+    """Container for parsed message content and the full raw completion payload."""
     content: str
     raw_response: dict[str, Any]
 
 
 class OpenRouterClient:
+    """Client for OpenRouter chat completions and model metadata retrieval."""
+
     def __init__(self, api_key: str | None = None) -> None:
+        """Initialize API client and optional OpenRouter attribution headers."""
         self.api_key = api_key or os.getenv("OPENROUTER_API_KEY")
         if not self.api_key:
             raise ValueError("OPENROUTER_API_KEY is required")
@@ -39,6 +44,7 @@ class OpenRouterClient:
         )
 
     def chat_json(self, model: str, system_prompt: str, user_prompt: str, temperature: float = 0.0) -> ChatResult:
+        """Call chat completions and return first response content plus raw payload."""
         completion = self._openai.chat.completions.create(
             model=model,
             temperature=temperature,
@@ -62,9 +68,10 @@ class OpenRouterClient:
         return ChatResult(content=content, raw_response=raw)
 
     def fetch_models(self) -> dict[str, Any]:
+        """Fetch model metadata from OpenRouter Models API for pricing fallback."""
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        referer = os.getenv("OPENROUTER_HTTP_REFERER")
-        title = os.getenv("OPENROUTER_X_TITLE")
+        referer = os.getenv("OPENROUTER_HTTP_REFERER") # Helps OpenRouter identify where requests are coming from
+        title = os.getenv("OPENROUTER_X_TITLE") # Helps label your traffic in OpenRouter’s systems/logging
         if referer:
             headers["HTTP-Referer"] = referer
         if title:
@@ -77,4 +84,5 @@ class OpenRouterClient:
 
 
 def try_parse_json(text: str) -> dict[str, Any]:
+    """Parse a JSON string into a dictionary."""
     return json.loads(text)

@@ -1,4 +1,5 @@
 # Core extraction orchestration: load files, prompt LLM, validate JSON, compute usage, and cache results.
+"""Main extraction orchestrator for Stage 1 pipeline metadata generation."""
 from __future__ import annotations
 
 import json
@@ -32,14 +33,20 @@ from pipeline_qa_extractor.prompts import PROMPT_VERSION, build_repair_prompt, b
 
 
 class ExtractionError(RuntimeError):
+    """Raised when model output cannot be validated after repair."""
+
     pass
 
 
 class PipelineExtractor:
+    """Orchestrate prompt creation, model calls, validation, costing, and cache IO."""
+
     def __init__(self, client: OpenRouterClient | None = None) -> None:
+        """Initialize extractor with default or injected OpenRouter client."""
         self.client = client or OpenRouterClient()
 
     def run(self, cfg: ExtractionConfig) -> ExtractionResult:
+        """Execute one full extraction run and return validated structured output."""
         pipeline_text, dag_text, _ = build_input_bundle(cfg.pipeline_file, cfg.dag_file, cfg.max_input_chars)
 
         pipeline_hash = sha256_text(pipeline_text)
@@ -58,6 +65,7 @@ class PipelineExtractor:
         if not cfg.force:
             cached = load_cached_extraction(cache_key)
             if cached:
+                # Cache hits do not incur additional LLM cost in the current run.
                 cached["llm_usage"]["cost_source"] = "cache_hit"
                 result = ValidatedExtractionResult.model_validate(cached)
                 return ExtractionResult.model_validate(result.model_dump())
@@ -80,6 +88,7 @@ class PipelineExtractor:
 
             payload, second_error = self._validate_payload(repaired.content, cfg.technology)
             if payload is None:
+                # Always persist failed raw responses for debugging invalid output patterns.
                 failure_dir = raw_dir or (CACHE_DIR / "raw_failures")
                 self._save_raw(failure_dir, "initial_failure", first.raw_response)
                 self._save_raw(failure_dir, "repair_failure", repaired.raw_response)
@@ -111,6 +120,7 @@ class PipelineExtractor:
         return result
 
     def _validate_payload(self, text: str, technology: Technology) -> tuple[ExtractedPayload | None, str]:
+        """Parse and validate model JSON into internal payload structures."""
         try:
             parsed = try_parse_json(text)
             payload = ExtractedPayload.model_validate(parsed)
@@ -126,6 +136,7 @@ class PipelineExtractor:
         usage: LlmUsage,
         pipeline_hash: str,
     ) -> ExtractionResult:
+        """Assemble final extraction result with metadata and validated payload."""
         metadata = ExtractionMetadata(
             pipeline_file_path=cfg.pipeline_file,
             pipeline_file_hash=pipeline_hash,
@@ -145,6 +156,7 @@ class PipelineExtractor:
         return result
 
     def _save_raw(self, raw_output_dir: Path, label: str, raw: dict[str, Any]) -> Path:
+        """Write a raw model response payload to disk for debugging."""
         raw_output_dir.mkdir(parents=True, exist_ok=True)
         path = raw_output_dir / f"{label}_response.json"
         path.write_text(json.dumps(raw, indent=2, sort_keys=True), encoding="utf-8")

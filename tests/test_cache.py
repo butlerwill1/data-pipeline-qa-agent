@@ -1,8 +1,10 @@
 # Tests for deterministic cache key generation from extraction identity fields.
+"""Unit tests for cache key stability and key differentiation behavior."""
 from pipeline_qa_extractor.hashing import build_cache_key
 
 
 def test_cache_key_is_deterministic_for_same_parts() -> None:
+    """The same logical identity should always produce the same cache key."""
     parts = {
         "pipeline_file_hash": "abc",
         "dag_file_hash": "def",
@@ -18,6 +20,7 @@ def test_cache_key_is_deterministic_for_same_parts() -> None:
 
 
 def test_cache_key_changes_when_model_changes() -> None:
+    """Changing one identity field must produce a different cache key."""
     parts = {
         "pipeline_file_hash": "abc",
         "dag_file_hash": None,

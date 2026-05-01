@@ -1,18 +1,22 @@
 # File loading utilities with explicit size guardrails for prompt safety.
+"""Load pipeline input files and enforce maximum prompt-size constraints."""
 from __future__ import annotations
 
 from pathlib import Path
 
 
 class InputTooLargeError(ValueError):
+    """Raised when combined pipeline input exceeds configured character limits."""
     pass
 
 
 def read_text_file(path: str) -> str:
+    """Read UTF-8 text content from a filesystem path."""
     return Path(path).read_text(encoding="utf-8")
 
 
 def build_input_bundle(pipeline_file: str, dag_file: str | None, max_chars: int) -> tuple[str, str | None, int]:
+    """Return pipeline text, optional DAG text, and total character count."""
     pipeline_text = read_text_file(pipeline_file)
     dag_text = read_text_file(dag_file) if dag_file else None
 

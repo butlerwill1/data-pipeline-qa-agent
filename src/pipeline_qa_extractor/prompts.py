@@ -1,4 +1,5 @@
 # Prompt builders for shared extraction instructions and technology-specific output blocks.
+"""Prompt construction utilities for extraction and one-shot JSON repair."""
 from __future__ import annotations
 
 from pipeline_qa_extractor.models import Technology
@@ -58,6 +59,7 @@ GENERIC_SCHEMA = """
 
 
 def build_system_prompt(technology: Technology) -> str:
+    """Build the shared system prompt plus the selected technology detail schema."""
     details_schema = get_technology_detail_template(technology)
     inactive_block = '"postgres": null' if technology == "databricks" else '"databricks": null'
 
@@ -86,6 +88,7 @@ Return shape:
 
 
 def build_user_prompt(pipeline_file: str, pipeline_code: str, dag_file: str | None, dag_code: str | None) -> str:
+    """Build a bounded user prompt containing pipeline code and optional DAG code."""
     dag_section = ""
     if dag_file and dag_code is not None:
         dag_section = (
@@ -106,6 +109,7 @@ def build_user_prompt(pipeline_file: str, pipeline_code: str, dag_file: str | No
 
 
 def build_repair_prompt(validation_error: str, invalid_json_text: str) -> str:
+    """Build a strict repair instruction that asks the model for JSON only."""
     return (
         "Repair the JSON to satisfy validation errors. Return JSON only, no markdown.\n\n"
         f"Validation error:\n{validation_error}\n\n"

@@ -1,4 +1,5 @@
 # Usage and cost accounting for OpenRouter responses with model-pricing fallback estimates.
+"""Usage and pricing utilities for OpenRouter responses."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,9 +10,12 @@ from pipeline_qa_extractor.models import LlmUsage
 
 @dataclass
 class OpenRouterCostTracker:
+    """Track usage and derive actual or estimated request cost for one model."""
+
     model: str
 
     def usage_from_response(self, raw_response: dict[str, Any]) -> LlmUsage:
+        """Extract usage fields and authoritative cost from a completion payload."""
         usage = raw_response.get("usage") or {}
 
         prompt_tokens = _int_or_zero(usage.get("prompt_tokens"))
@@ -36,6 +40,7 @@ class OpenRouterCostTracker:
         )
 
     def apply_estimate_if_needed(self, usage: LlmUsage, models_payload: dict[str, Any] | None) -> LlmUsage:
+        """Estimate cost from model pricing when actual cost is missing."""
         if usage.actual_cost_usd is not None:
             return usage
 
@@ -64,6 +69,7 @@ class OpenRouterCostTracker:
 
 
 def _find_model(models_payload: dict[str, Any] | None, model_id: str) -> dict[str, Any] | None:
+    """Find a model entry in OpenRouter model metadata by model id."""
     if not models_payload:
         return None
     models = models_payload.get("data")
@@ -76,6 +82,7 @@ def _find_model(models_payload: dict[str, Any] | None, model_id: str) -> dict[st
 
 
 def _extract_cached_tokens(usage: dict[str, Any]) -> int | None:
+    """Extract cached prompt token count from known OpenRouter usage fields."""
     prompt_details = usage.get("prompt_tokens_details") or {}
     cached = prompt_details.get("cached_tokens")
     if cached is None:
@@ -84,6 +91,7 @@ def _extract_cached_tokens(usage: dict[str, Any]) -> int | None:
 
 
 def _extract_actual_cost(raw_response: dict[str, Any], usage: dict[str, Any]) -> float | None:
+    """Extract authoritative cost from known cost fields in usage/response."""
     for candidate in (
         usage.get("cost"),
         raw_response.get("cost"),
@@ -96,11 +104,13 @@ def _extract_actual_cost(raw_response: dict[str, Any], usage: dict[str, Any]) ->
 
 
 def _int_or_zero(value: Any) -> int:
+    """Parse integer value, returning zero when not parseable."""
     parsed = _int_or_none(value)
     return parsed or 0
 
 
 def _int_or_none(value: Any) -> int | None:
+    """Parse integer value, returning None when not parseable."""
     try:
         if value is None:
             return None
@@ -110,6 +120,7 @@ def _int_or_none(value: Any) -> int | None:
 
 
 def _float_or_none(value: Any) -> float | None:
+    """Parse float value, returning None when not parseable."""
     try:
         if value is None:
             return None
