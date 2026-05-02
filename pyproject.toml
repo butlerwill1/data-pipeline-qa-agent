@@ -1,0 +1,17 @@
+[project]
+name = "data-qa-agent"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic[bedrock]>=0.97.0",
+    "boto3>=1.43.2",
+    "langgraph>=1.1.10",
+    "langgraph-checkpoint-mongodb>=0.3.1",
+    "langsmith>=0.8.0",
+    "pydantic>=2.13.3",
+    "pymongo>=4.15.5",
+    "python-dotenv>=1.2.2",
+    "typer>=0.25.1",
+    "voyageai>=0.3.7",
+]
