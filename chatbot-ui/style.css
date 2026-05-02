@@ -677,20 +677,43 @@ body {
 .finding-grid,
 .query-stack {
   display: grid;
-  gap: 14px;
+  gap: 18px;
 }
 
 .finding-grid {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
 }
 
 .finding-card {
   display: grid;
   gap: 12px;
-  padding: 16px;
+  padding: 18px;
   border-radius: 18px;
-  border: 1px solid rgba(117, 94, 71, 0.14);
-  background: rgba(255, 249, 243, 0.9);
+  border: 1px solid rgba(117, 94, 71, 0.18);
+  background: rgba(255, 249, 243, 0.95);
+  box-shadow: 0 1px 0 rgba(117, 94, 71, 0.04), 0 8px 18px rgba(76, 49, 28, 0.05);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.finding-card > * {
+  min-width: 0;
+}
+
+.finding-card h4,
+.finding-card p,
+.finding-card .finding-action,
+.finding-card .finding-table {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.finding-top {
+  flex-wrap: wrap;
+}
+
+.finding-card + .finding-card {
+  margin-top: 0;
 }
 
 .finding-card h4 {
@@ -1001,3 +1024,102 @@ code.inline {
 .run-sev-pass { background: rgba(19, 111, 99, 0.15); color: var(--success); }
 .run-sev-warn { background: rgba(165, 103, 22, 0.15); color: var(--warn); }
 .run-sev-fail { background: rgba(180, 35, 24, 0.15); color: var(--fail); }
+
+/* Auto-answer block on the question form */
+.question-default {
+  background: var(--bg-strong);
+  border: 1px dashed var(--accent);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.question-default-label {
+  font-size: 12px;
+  color: var(--accent-strong);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.question-default-text {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 13px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.question-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.question-fill-all {
+  margin-right: auto;
+}
+
+/* GitHub markdown body — tighten the defaults that bleed into the cream theme */
+.markdown-body {
+  background: transparent !important;
+  color: var(--ink) !important;
+  font-family: 'IBM Plex Sans', sans-serif !important;
+  font-size: 15px;
+  line-height: 1.6;
+  padding: 4px 2px;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  border-bottom-color: var(--line) !important;
+  color: var(--ink) !important;
+  font-family: 'Space Grotesk', sans-serif !important;
+}
+
+.markdown-body code {
+  background: rgba(117, 94, 71, 0.1) !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+}
+
+.markdown-body pre {
+  background: var(--bg-strong) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 12px !important;
+}
+
+.markdown-body table {
+  display: table !important;
+  width: 100% !important;
+}
+
+.markdown-body table th,
+.markdown-body table td {
+  border-color: var(--line) !important;
+}
+
+.markdown-body table tr {
+  background: transparent !important;
+}
+
+.markdown-body table tr:nth-child(2n) {
+  background: rgba(255, 247, 238, 0.5) !important;
+}
+
+.markdown-body blockquote {
+  border-left-color: var(--accent) !important;
+  color: var(--muted) !important;
+}
+
+.markdown-body a {
+  color: var(--accent-strong) !important;
+}

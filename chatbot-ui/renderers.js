@@ -58,58 +58,14 @@ function inlineFormat(text) {
 }
 
 function markdownToHtml(markdown) {
-  const lines = String(markdown || '').split('\n');
-  let html = '';
-  let paragraph = [];
-  let inList = false;
-
-  function closeParagraph() {
-    if (!paragraph.length) return;
-    html += `<p>${inlineFormat(paragraph.join(' '))}</p>`;
-    paragraph = [];
+  const text = String(markdown || '').trim();
+  if (!text) return '<p>No report content available.</p>';
+  if (typeof window.marked !== 'undefined') {
+    window.marked.setOptions({ gfm: true, breaks: false, headerIds: false, mangle: false });
+    return window.marked.parse(text);
   }
-
-  function closeList() {
-    if (!inList) return;
-    html += '</ul>';
-    inList = false;
-  }
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line) {
-      closeParagraph();
-      closeList();
-      continue;
-    }
-
-    const headingMatch = line.match(/^(#{1,3})\s+(.*)$/);
-    if (headingMatch) {
-      closeParagraph();
-      closeList();
-      const level = Math.min(4, headingMatch[1].length + 1);
-      html += `<h${level}>${inlineFormat(headingMatch[2])}</h${level}>`;
-      continue;
-    }
-
-    const listMatch = line.match(/^[-*]\s+(.*)$/) || line.match(/^\d+\.\s+(.*)$/);
-    if (listMatch) {
-      closeParagraph();
-      if (!inList) {
-        html += '<ul>';
-        inList = true;
-      }
-      html += `<li>${inlineFormat(listMatch[1])}</li>`;
-      continue;
-    }
-
-    closeList();
-    paragraph.push(line);
-  }
-
-  closeParagraph();
-  closeList();
-  return html || '<p>No report content available.</p>';
+  // Fallback if CDN failed: minimal escape
+  return `<pre>${esc(text)}</pre>`;
 }
 
 function fmtCell(value) {
@@ -181,10 +137,23 @@ function renderQuestionForm(runId, questions) {
     `)
     .join('');
 
+  const defaultAnswer = 'Standard expectations apply: data should be complete by 9am next day; '
+    + 'negative consumption is invalid; expect peak_consumption between 0 and 5000 kWh; '
+    + 'expect at least 48 readings per substation per day. Apply your best judgement for anything else.';
+
   return `
     <form class="question-form" data-run-id="${escAttr(runId)}" onsubmit="submitPendingAnswers(event)">
+      <div class="question-default">
+        <label class="question-default-label">Default answer (used by "Fill all and submit"):</label>
+        <textarea class="question-default-text" rows="2">${esc(defaultAnswer)}</textarea>
+      </div>
       ${blocks}
-      <button class="primary-btn question-submit" type="submit">Resume QA run</button>
+      <div class="question-actions">
+        <button class="ghost-btn question-fill-all" type="button" onclick="fillAllAndSubmit(event)">
+          Fill all and submit
+        </button>
+        <button class="primary-btn question-submit" type="submit">Resume QA run</button>
+      </div>
     </form>
   `;
 }
@@ -296,7 +265,7 @@ function renderMarkdownDocument(title, markdown, downloadUrl) {
         </div>
         ${downloadLink}
       </div>
-      <div class="doc-body">${markdownToHtml(markdown)}</div>
+      <div class="doc-body markdown-body">${markdownToHtml(markdown)}</div>
     </article>
   `;
 }

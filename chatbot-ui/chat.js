@@ -70,6 +70,7 @@ function init() {
   window.submitPendingAnswers = submitPendingAnswers;
   window.copyStoredText = copyStoredText;
   window.loadHistoricalRun = loadHistoricalRun;
+  window.fillAllAndSubmit = fillAllAndSubmit;
 
   refreshRunsList();
   appState.runsListTimer = window.setInterval(refreshRunsList, 5000);
@@ -458,6 +459,26 @@ async function handleStopRun() {
       )
     );
   }
+}
+
+function fillAllAndSubmit(event) {
+  const form = event.target.closest('form.question-form');
+  if (!form) return;
+  const defaultText = (form.querySelector('.question-default-text')?.value || '').trim();
+  if (!defaultText) {
+    addBotMessage(
+      renderInfoCard(
+        'Default answer empty',
+        '<p>Provide a default answer in the textarea before using "Fill all and submit".</p>',
+        { kicker: 'Validation', tone: 'error' }
+      )
+    );
+    return;
+  }
+  form.querySelectorAll('textarea.question-answer').forEach((ta) => {
+    ta.value = defaultText;
+  });
+  form.requestSubmit();
 }
 
 async function refreshRunsList() {
