@@ -5,6 +5,8 @@ import time
 import boto3
 from dotenv import load_dotenv
 
+from . import mocks
+
 load_dotenv()
 
 AWS_REGION = os.getenv("AWS_REGION", "eu-west-2")
@@ -50,6 +52,9 @@ def run(sql: str, database: str | None = None) -> dict:
     if not ok:
         return {"status": "rejected", "reason": normalised, "sql": sql}
     sql = normalised
+
+    if mocks.is_dry_run():
+        return mocks.mock_athena_run(sql)
 
     db = database or DEFAULT_DB
     kwargs = {

@@ -1,3 +1,4 @@
+from .. import mocks
 from ..llm import call
 from ..mongo import collections, now_utc, update_run_status
 from ..state import State
@@ -10,20 +11,22 @@ def write_final_report(state: State) -> dict:
     findings = state.get("findings", [])
     executed = state.get("executed_queries", [])
 
-    system = (
-        "You write a concise, evidence-backed data QA report in Markdown. Sections: "
-        "Executive Summary, Tables Reviewed, Checks Performed, Findings (ordered by "
-        "severity, with evidence), Recommended Actions. Cite specific values from "
-        "query results in the evidence. Keep under 600 words."
-    )
-    user = (
-        f"Table understandings: {understanding}\n\n"
-        f"Findings: {findings}\n\n"
-        "Executed queries summary (without large samples): "
-        f"{[{k: v for k, v in q.items() if k != 'result_sample'} for q in executed]}"
-    )
-
-    md = call(system, user, max_tokens=4096)
+    if mocks.is_dry_run():
+        md = mocks.mock_final_report(understanding, findings)
+    else:
+        system = (
+            "You write a concise, evidence-backed data QA report in Markdown. Sections: "
+            "Executive Summary, Tables Reviewed, Checks Performed, Findings (ordered by "
+            "severity, with evidence), Recommended Actions. Cite specific values from "
+            "query results in the evidence. Keep under 600 words."
+        )
+        user = (
+            f"Table understandings: {understanding}\n\n"
+            f"Findings: {findings}\n\n"
+            "Executed queries summary (without large samples): "
+            f"{[{k: v for k, v in q.items() if k != 'result_sample'} for q in executed]}"
+        )
+        md = call(system, user, max_tokens=4096)
 
     severity_summary = {
         "pass": sum(1 for f in findings if f.get("severity") == "pass"),

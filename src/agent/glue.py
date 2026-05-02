@@ -4,6 +4,8 @@ import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from dotenv import load_dotenv
 
+from . import mocks
+
 load_dotenv()
 
 GLUE_DATABASE = os.getenv("GLUE_DATABASE", "default")
@@ -28,6 +30,8 @@ def _resolve(table_id: str) -> tuple[str, str]:
 
 
 def get_table_metadata(table_id: str) -> dict:
+    if mocks.is_dry_run():
+        return mocks.mock_glue_metadata(table_id)
     db, name = _resolve(table_id)
     try:
         resp = client().get_table(DatabaseName=db, Name=name)
