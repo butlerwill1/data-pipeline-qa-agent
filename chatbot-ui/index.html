@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pipeline QA Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="page-glow page-glow-a"></div>
+  <div class="page-glow page-glow-b"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">QA</div>
+      <div>
+        <p class="eyebrow">Data Pipeline QA Agent</p>
+        <h1>Local operator console</h1>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="status-badge" id="status-badge" data-state="idle">
+        <span class="status-dot"></span>
+        <span id="status-text">Idle</span>
+      </div>
+      <button class="secondary-btn" id="stop-run-btn" type="button" disabled>Stop agent</button>
+      <button class="secondary-btn" id="new-run-btn" type="button">Reset workspace</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <aside class="setup-column">
+      <section class="panel">
+        <div class="panel-head">
+          <p class="section-kicker">Phase 1</p>
+          <h2>Run setup</h2>
+          <p>
+            Start a QA run against a local pipeline file. Use one table per line, comma
+            separated values, or plain whitespace between source and destination tables.
+          </p>
+        </div>
+
+        <form id="run-form" class="stack-form">
+          <label class="field">
+            <span>Pipeline path</span>
+            <input
+              id="pipeline-path"
+              name="pipeline_path"
+              type="text"
+              placeholder="/Users/you/project/src/transform_daily.py"
+              required
+            >
+          </label>
+
+          <label class="field">
+            <span>Source tables</span>
+            <textarea
+              id="source-tables"
+              name="source_tables"
+              rows="5"
+              placeholder="energy_smart_meter.silver_smart_meter_half_hourly_clean, energy_smart_meter.raw_external_smart_meter"
+            ></textarea>
+          </label>
+
+          <label class="field">
+            <span>Destination tables</span>
+            <textarea
+              id="destination-tables"
+              name="destination_tables"
+              rows="4"
+              placeholder="energy_smart_meter.gold_peak_demand_substation_day, energy_smart_meter.gold_load_profile_half_hour_day"
+            ></textarea>
+          </label>
+
+          <label class="field">
+            <span>Business context</span>
+            <textarea
+              id="business-context"
+              name="business_context_seed"
+              rows="4"
+              placeholder="Daily UK smart meter half-hourly consumption rollup; should be complete by 9am next day."
+            ></textarea>
+          </label>
+
+          <button class="primary-btn" id="start-run-btn" type="submit">Start QA run</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <p class="section-kicker">Run summary</p>
+          <h2>Current state</h2>
+          <p>Live status for the active run. The workspace resets locally without deleting saved Mongo records.</p>
+        </div>
+
+        <dl class="summary-grid">
+          <div>
+            <dt>Status</dt>
+            <dd id="summary-status">Idle</dd>
+          </div>
+          <div>
+            <dt>Current node</dt>
+            <dd id="summary-node">None</dd>
+          </div>
+          <div>
+            <dt>Run ID</dt>
+            <dd id="summary-run-id">Not started</dd>
+          </div>
+          <div>
+            <dt>Pipeline</dt>
+            <dd id="summary-pipeline">Not selected</dd>
+          </div>
+        </dl>
+
+        <div class="metric-strip">
+          <div class="metric-card">
+            <span class="metric-label">Pending</span>
+            <strong id="metric-pending">0</strong>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Queries</span>
+            <strong id="metric-queries">0</strong>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Findings</span>
+            <strong id="metric-findings">0</strong>
+          </div>
+        </div>
+
+        <div class="summary-footer" id="summary-updated">No run activity yet.</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <p class="section-kicker">Artifacts</p>
+          <h2>Review pack</h2>
+          <p>Generated report documents and severity totals appear here once the run reaches a report stage.</p>
+        </div>
+
+        <div class="artifact-summary empty" id="artifact-summary">
+          No report yet.
+        </div>
+      </section>
+    </aside>
+
+    <section class="workspace-column" id="workspace-column">
+      <div id="welcome" class="welcome">
+        <div class="welcome-card">
+          <p class="section-kicker">Workflow</p>
+          <h2>Submit, wait, answer, review.</h2>
+          <p>
+            This UI runs the same LangGraph agent as the CLI, but through a local HTTP
+            server. The chat stream reflects run status, follow-up questions, findings,
+            and query samples written by the agent.
+          </p>
+          <div class="welcome-list">
+            <span>1. Start a run with a local pipeline path</span>
+            <span>2. Poll status from Mongo-backed state</span>
+            <span>3. Answer follow-up questions inline</span>
+            <span>4. Review report, findings, and sample query results</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="chat" class="chat">
+        <div id="messages" class="messages"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="renderers.js"></script>
+  <script src="api.js"></script>
+  <script src="chat.js"></script>
+</body>
+</html>

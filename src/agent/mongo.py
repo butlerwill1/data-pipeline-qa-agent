@@ -56,6 +56,7 @@ def ensure_indexes() -> None:
     cols["pipeline_runs"].create_index("run_id", unique=True)
     cols["pending_questions"].create_index([("run_id", 1), ("question_id", 1)], unique=True)
     cols["user_answers"].create_index("question_id")
+    cols["user_answers"].create_index([("run_id", 1), ("answered_at", 1)])
     cols["table_understandings"].create_index("table_id")
     cols["executed_queries"].create_index("run_id")
     cols["findings"].create_index("run_id")
