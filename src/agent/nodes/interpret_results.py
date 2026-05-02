@@ -20,7 +20,10 @@ def interpret_results(state: State) -> dict:
     update_run_status(state["run_id"], "running", current_node="interpret_results")
 
     cols = collections()
-    understanding = state.get("table_understanding", {})
+    full_understanding = state.get("table_understanding", {}) or {}
+    understanding = {
+        tid: u for tid, u in full_understanding.items() if not u.get("parsing_failed")
+    }
     executed = state.get("executed_queries", [])
 
     system = (

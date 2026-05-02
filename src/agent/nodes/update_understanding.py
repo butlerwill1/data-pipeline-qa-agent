@@ -62,22 +62,32 @@ def update_table_understanding(state: State) -> dict:
             "Produce the table understanding."
         )
 
+        parsing_failed = False
+        parse_error: str | None = None
         try:
             doc = call_structured(system, user, SCHEMA, max_tokens=2048)
-            if not isinstance(doc, dict):
+            if not isinstance(doc, dict) or not doc.get("business_description"):
+                parsing_failed = True
+                parse_error = "model returned an empty or non-dict structure"
                 doc = {}
         except Exception as e:
-            doc = {"error": str(e)}
+            parsing_failed = True
+            parse_error = str(e)
+            doc = {}
 
         doc["table_id"] = table_id
         doc["run_id"] = state["run_id"]
         doc["updated_at"] = now_utc()
+        doc["parsing_failed"] = parsing_failed
+        if parsing_failed:
+            doc["parse_error"] = parse_error
 
-        try:
-            emb_text = f"{table_id}: {doc.get('business_description', '')}"
-            doc["embedding"] = embed(emb_text)
-        except Exception as e:
-            doc["embedding_error"] = str(e)
+        if not parsing_failed:
+            try:
+                emb_text = f"{table_id}: {doc.get('business_description', '')}"
+                doc["embedding"] = embed(emb_text)
+            except Exception as e:
+                doc["embedding_error"] = str(e)
 
         latest = cols["table_understandings"].find_one(
             {"table_id": table_id}, sort=[("version", -1)]

@@ -83,27 +83,53 @@ def _strip_fence(raw: str) -> str:
 
 
 def call_structured(system: str, user: str, schema_hint: str, max_tokens: int = 2048) -> dict:
-    """Asks the model to emit JSON matching a schema hint and parses it."""
+    """Asks the model to emit JSON matching a schema hint and parses it.
+
+    On OpenRouter we use the API's JSON mode (response_format=json_object) which
+    guarantees syntactic validity at the provider level. On Bedrock/Anthropic we
+    fall back to ask-nicely-and-parse with bracket recovery.
+    """
     if mocks.is_dry_run():
         return _mock_structured(system, user, schema_hint)
 
+    provider = _provider()
     extended_system = (
         f"{system}\n\n"
         f"Respond with valid JSON only matching this shape:\n{schema_hint}\n"
         "No prose. No markdown fences. Just JSON."
     )
-    raw = _strip_fence(call(extended_system, user, max_tokens=max_tokens))
+
+    if provider == "openrouter":
+        resp = _client(provider).chat.completions.create(
+            model=OPENROUTER_MODEL,
+            max_tokens=max_tokens,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": extended_system},
+                {"role": "user", "content": user},
+            ],
+        )
+        raw = (resp.choices[0].message.content or "").strip()
+    else:
+        raw = _strip_fence(call(extended_system, user, max_tokens=max_tokens))
+
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
         s = raw.find("{")
         e = raw.rfind("}")
         if s >= 0 and e > s:
-            return json.loads(raw[s : e + 1])
+            try:
+                return json.loads(raw[s : e + 1])
+            except json.JSONDecodeError:
+                pass
         s = raw.find("[")
         e = raw.rfind("]")
         if s >= 0 and e > s:
-            return json.loads(raw[s : e + 1])
+            try:
+                return json.loads(raw[s : e + 1])
+            except json.JSONDecodeError:
+                pass
         raise ValueError(f"Could not parse JSON from model output: {raw[:200]}")
 
 

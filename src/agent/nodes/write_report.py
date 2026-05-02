@@ -7,7 +7,13 @@ from ..state import State
 def write_final_report(state: State) -> dict:
     update_run_status(state["run_id"], "running", current_node="write_final_report")
 
-    understanding = state.get("table_understanding", {})
+    full_understanding = state.get("table_understanding", {}) or {}
+    understanding = {
+        tid: u for tid, u in full_understanding.items() if not u.get("parsing_failed")
+    }
+    skipped_tables = [
+        tid for tid, u in full_understanding.items() if u.get("parsing_failed")
+    ]
     findings = state.get("findings", [])
     executed = state.get("executed_queries", [])
 
@@ -20,8 +26,12 @@ def write_final_report(state: State) -> dict:
             "severity, with evidence), Recommended Actions. Cite specific values from "
             "query results in the evidence. Keep under 600 words."
         )
+        skipped_note = (
+            f"\n\nTables that could not be characterised (skipped, do not invent findings about them): {skipped_tables}"
+            if skipped_tables else ""
+        )
         user = (
-            f"Table understandings: {understanding}\n\n"
+            f"Table understandings: {understanding}{skipped_note}\n\n"
             f"Findings: {findings}\n\n"
             "Executed queries summary (without large samples): "
             f"{[{k: v for k, v in q.items() if k != 'result_sample'} for q in executed]}"

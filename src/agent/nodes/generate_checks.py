@@ -31,7 +31,12 @@ Reference QA SQL shapes the team has used before:
 def generate_qa_checks(state: State) -> dict:
     update_run_status(state["run_id"], "running", current_node="generate_qa_checks")
 
-    understanding = state.get("table_understanding", {})
+    full_understanding = state.get("table_understanding", {}) or {}
+    understanding = {
+        tid: u for tid, u in full_understanding.items() if not u.get("parsing_failed")
+    }
+    if not understanding:
+        return {"candidate_checks": []}
     prior = state.get("prior_context", {})
     profiles = state.get("table_profiles", {})
 
