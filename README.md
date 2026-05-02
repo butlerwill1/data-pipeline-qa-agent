@@ -18,23 +18,42 @@ A LangGraph data QA agent that builds persistent, evidence-backed business and t
 - Voyage AI embeddings
 - LangSmith observability
 
-## Setup
+## 60-second setup
 
 ```bash
-uv sync
-cp .env.example .env  # fill in the secrets
-uv run python -m src.cli init  # create Mongo indexes
+make setup        # installs uv + Python 3.12 + deps + scaffolds .env
+# edit .env (3-line minimum below), then:
+make init         # creates Mongo indexes
+make demo         # runs the full agent end-to-end against the smart meter pipeline
 ```
 
-## Run
+**Minimum `.env` to run the dry demo:**
 
-CLI (rehearsal / debug):
+```
+conn_string=mongodb+srv://USER:PASSWORD@cluster.mongodb.net/?appName=Cluster0
+MONGO_DB_NAME=qa_agent
+DRY_RUN=1
+```
+
+That's it. No Anthropic, AWS, Voyage, or LangSmith keys required for the dry run; Bedrock, Athena, Glue, and Voyage are all mocked with realistic smart-meter-shaped output. To go real, see [docs/aws-setup.md](docs/aws-setup.md) and add an LLM provider key (Bedrock, OpenRouter, or Anthropic).
+
+## Make targets
+
+| Command | What it does |
+|---------|--------------|
+| `make setup` | Installs uv, Python 3.12, deps, scaffolds `.env` |
+| `make init` | Creates Mongo indexes |
+| `make demo` | Runs DRY_RUN end-to-end against the smart meter pipeline |
+| `make real` | Same but with real LLM + AWS (requires full `.env`) |
+| `make daemon` | Starts the change-stream daemon for the frontend |
+
+## Manual invocation
 
 ```bash
 uv run python -m src.cli run \
   --pipeline ../uk-smart-meter-data/energy-smart-meter-pipeline/src/transform_daily.py \
   --source-tables energy_smart_meter.raw_external_smart_meter \
-  --destination-tables energy_smart_meter.silver_smart_meter_half_hourly_clean energy_smart_meter.gold_peak_demand_substation_day \
+  --destination-tables energy_smart_meter.silver_smart_meter_half_hourly_clean \
   --business-context "Daily UK smart meter half-hourly consumption rollup; should be complete by 9am next day."
 ```
 
@@ -42,7 +61,7 @@ Daemon (frontend-driven):
 
 ```bash
 uv run python -m src.daemon
-# Frontend inserts a doc into `pipeline_runs` with status="pending" and the daemon picks it up.
+# Frontend inserts a doc into pipeline_runs with status="pending" and the daemon picks it up.
 ```
 
 ## Architecture
