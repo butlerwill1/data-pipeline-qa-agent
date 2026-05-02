@@ -6,6 +6,7 @@ const appState = {
   lastStatusKey: null,
   renderedQuestionKeys: new Set(),
   renderedArtifactsForRun: new Set(),
+  runsListTimer: null,
 };
 
 const NODE_LABELS = {
@@ -60,6 +61,7 @@ function init() {
   refs.sourceTables = document.getElementById('source-tables');
   refs.destinationTables = document.getElementById('destination-tables');
   refs.businessContext = document.getElementById('business-context');
+  refs.runsList = document.getElementById('runs-list');
 
   refs.runForm.addEventListener('submit', handleRunSubmit);
   refs.newRunButton.addEventListener('click', resetWorkspace);
@@ -67,6 +69,10 @@ function init() {
 
   window.submitPendingAnswers = submitPendingAnswers;
   window.copyStoredText = copyStoredText;
+  window.loadHistoricalRun = loadHistoricalRun;
+
+  refreshRunsList();
+  appState.runsListTimer = window.setInterval(refreshRunsList, 5000);
 
   getHealth().catch(() => {
     addBotMessage(
@@ -112,6 +118,7 @@ function resetWorkspace() {
   updateSummary(null);
   refs.artifactSummary.className = 'artifact-summary empty';
   refs.artifactSummary.textContent = 'No report yet.';
+  refreshRunsList();
 }
 
 function setFormBusy(isBusy) {
@@ -371,6 +378,7 @@ async function handleRunSubmit(event) {
     const snapshot = await createRun(payload);
     appState.currentRunId = snapshot.run.run_id;
     syncSnapshot(snapshot);
+    refreshRunsList();
     startPolling();
   } catch (error) {
     setFormBusy(false);
@@ -447,6 +455,99 @@ async function handleStopRun() {
         'Stop request failed',
         `<p>${esc(error.message)}</p>`,
         { kicker: 'API', tone: 'error' }
+      )
+    );
+  }
+}
+
+async function refreshRunsList() {
+  if (!refs.runsList) return;
+  try {
+    const payload = await listRuns(20);
+    const runs = (payload && payload.runs) || [];
+    renderRunsList(runs);
+  } catch (error) {
+    refs.runsList.innerHTML = `<div class="runs-empty">Could not load runs.</div>`;
+  }
+}
+
+function renderRunsList(runs) {
+  if (!runs.length) {
+    refs.runsList.innerHTML = '<div class="runs-empty">No runs yet.</div>';
+    return;
+  }
+  refs.runsList.innerHTML = runs
+    .map((run) => {
+      const isActive = run.run_id === appState.currentRunId;
+      const ts = run.started_at ? formatDateTime(run.started_at) : '';
+      const pipelineLabel = (run.pipeline_path || '')
+        .split('/').pop() || 'pipeline';
+      const sev = run.severity_summary || {};
+      const sevChips = (sev.pass || sev.warn || sev.fail)
+        ? `<span class="run-sev-pass">${sev.pass || 0}</span>
+           <span class="run-sev-warn">${sev.warn || 0}</span>
+           <span class="run-sev-fail">${sev.fail || 0}</span>`
+        : '';
+      return `
+        <button
+          type="button"
+          class="run-item ${isActive ? 'active' : ''}"
+          data-run-id="${escAttr(run.run_id)}"
+          onclick="loadHistoricalRun('${escAttr(run.run_id)}')"
+        >
+          <div class="run-item-row">
+            <span class="status-pill status-${statusClass(run.status)}">${esc(statusLabel(run.status))}</span>
+            ${sevChips ? `<span class="run-sev">${sevChips}</span>` : ''}
+          </div>
+          <div class="run-item-pipeline" title="${escAttr(run.pipeline_path || '')}">${esc(pipelineLabel)}</div>
+          <div class="run-item-meta">
+            <span class="run-item-id">${esc(run.run_id.slice(0, 8))}</span>
+            ${ts ? `<span class="run-item-time">${esc(ts)}</span>` : ''}
+          </div>
+        </button>
+      `;
+    })
+    .join('');
+}
+
+async function loadHistoricalRun(runId) {
+  if (!runId) return;
+  if (appState.currentRunId === runId && appState.pollTimer) return;
+
+  window.clearInterval(appState.pollTimer);
+  appState.pollTimer = null;
+  appState.currentRunId = runId;
+  appState.lastStatusKey = null;
+  appState.renderedQuestionKeys = new Set();
+  appState.renderedArtifactsForRun = new Set();
+
+  refs.messages.innerHTML = '';
+  refs.welcome.style.display = 'none';
+  refs.chat.style.display = 'block';
+  refs.artifactSummary.className = 'artifact-summary empty';
+  refs.artifactSummary.textContent = 'Loading...';
+  setFormBusy(false);
+
+  try {
+    const snapshot = await getRun(runId);
+    addBotMessage(
+      renderInfoCard(
+        'Loaded historical run',
+        `<p>Replaying the recorded state for run <code>${esc(runId.slice(0, 8))}</code>. The findings, queries, and report below were produced during the original execution.</p>`,
+        { kicker: 'History', tone: 'default' }
+      )
+    );
+    syncSnapshot(snapshot);
+    refreshRunsList();
+    if (['running', 'awaiting_user', 'submitted'].includes(snapshot.run?.status)) {
+      startPolling();
+    }
+  } catch (error) {
+    addBotMessage(
+      renderInfoCard(
+        'Could not load run',
+        `<p>${esc(error.message)}</p>`,
+        { kicker: 'History', tone: 'error' }
       )
     );
   }

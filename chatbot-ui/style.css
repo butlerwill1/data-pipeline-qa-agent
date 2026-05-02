@@ -891,3 +891,113 @@ code.inline {
     padding: 18px;
   }
 }
+
+/* Recent runs panel */
+.runs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.runs-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.runs-list::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}
+
+.runs-empty {
+  color: var(--muted);
+  font-size: 13px;
+  font-style: italic;
+  padding: 12px 4px;
+}
+
+.run-item {
+  appearance: none;
+  background: var(--bg-strong);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+  font-family: inherit;
+  color: var(--ink);
+}
+
+.run-item:hover {
+  background: #fff5e8;
+  border-color: var(--accent-soft);
+}
+
+.run-item:active {
+  transform: translateY(1px);
+}
+
+.run-item.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.run-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.run-item-pipeline {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.run-item-id {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.run-item-time {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.run-sev {
+  display: inline-flex;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.run-sev > span {
+  padding: 1px 5px;
+  border-radius: 6px;
+}
+
+.run-sev-pass { background: rgba(19, 111, 99, 0.15); color: var(--success); }
+.run-sev-warn { background: rgba(165, 103, 22, 0.15); color: var(--warn); }
+.run-sev-fail { background: rgba(180, 35, 24, 0.15); color: var(--fail); }
