@@ -109,7 +109,7 @@ def call_structured(system: str, user: str, schema_hint: str, max_tokens: int = 
                 {"role": "user", "content": user},
             ],
         )
-        raw = (resp.choices[0].message.content or "").strip()
+        raw = _strip_fence((resp.choices[0].message.content or "").strip())
     else:
         raw = _strip_fence(call(extended_system, user, max_tokens=max_tokens))
 

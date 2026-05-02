@@ -50,8 +50,10 @@ def update_table_understanding(state: State) -> dict:
             "You synthesise a single, evidence-backed understanding of a data table from "
             "pipeline code, profiling queries, prior similar table understandings, and "
             "user-provided business context. Cite evidence for every claim. Mark "
-            "confidence honestly. If a field is unknown, set it to a sensible empty "
-            "value rather than fabricating."
+            "confidence honestly. ALWAYS provide a non-empty business_description by "
+            "inferring from the table name, the pipeline transformations, and the "
+            "schema; if the business context is thin, lower the confidence on grain "
+            "and freshness rather than leaving fields blank."
         )
         user = (
             f"Table: {table_id}\n\n"
@@ -65,7 +67,7 @@ def update_table_understanding(state: State) -> dict:
         parsing_failed = False
         parse_error: str | None = None
         try:
-            doc = call_structured(system, user, SCHEMA, max_tokens=2048)
+            doc = call_structured(system, user, SCHEMA, max_tokens=4096)
             if not isinstance(doc, dict) or not doc.get("business_description"):
                 parsing_failed = True
                 parse_error = "model returned an empty or non-dict structure"
