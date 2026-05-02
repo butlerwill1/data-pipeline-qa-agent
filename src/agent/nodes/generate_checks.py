@@ -33,18 +33,34 @@ def generate_qa_checks(state: State) -> dict:
 
     understanding = state.get("table_understanding", {})
     prior = state.get("prior_context", {})
+    profiles = state.get("table_profiles", {})
+
+    schema_block_lines = ["Authoritative schemas (USE ONLY THESE COLUMNS — do not invent column names):"]
+    for table_id, profile in profiles.items():
+        meta = profile.get("metadata", {}) or {}
+        cols = meta.get("columns", []) or []
+        partitions = meta.get("partition_keys", []) or []
+        schema_block_lines.append(
+            f"- {table_id}: columns=[{', '.join(c['name'] for c in cols)}]"
+            + (f", partitions=[{', '.join(p['name'] for p in partitions)}]" if partitions else "")
+        )
+    schema_block = "\n".join(schema_block_lines)
 
     system = (
         "You generate concrete SQL QA checks for data tables based on what is known "
         "about their grain, freshness expectation, important columns, and known risks. "
         "Output Athena/Presto-compatible SQL. Always quote database and table names. "
-        "Always include a LIMIT on SELECTs. Prefer cheap metadata queries first."
+        "Always include a LIMIT on SELECTs. Prefer cheap metadata queries first. "
+        "CRITICAL: every column you reference in SQL MUST appear in the authoritative "
+        "schema list provided in the user message. Never invent or guess column names. "
+        "If a check would require a column that does not exist, skip it."
     )
     user = (
+        f"{schema_block}\n\n"
         f"{EXEMPLAR_HINTS}\n\n"
         f"Table understandings to QA: {understanding}\n\n"
         f"Prior similar checks: {prior}\n\n"
-        "Generate 4-8 useful checks across the tables."
+        "Generate 4-8 useful checks across the tables. Reference only the columns listed above."
     )
 
     out = call_structured(system, user, SCHEMA, max_tokens=3072)
