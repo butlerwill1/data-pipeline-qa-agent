@@ -1,3 +1,5 @@
+"""Command-line entrypoint for running and initialising QA agent workflows."""
+
 import argparse
 import uuid
 from pathlib import Path
@@ -12,11 +14,13 @@ load_dotenv()
 
 
 def cmd_init(_args):
+    """Create MongoDB indexes required by the agent runtime."""
     ensure_indexes()
     print("Mongo indexes created.")
 
 
 def cmd_run(args):
+    """Run the graph from the CLI and handle any interrupt-driven questions."""
     pipeline_text = Path(args.pipeline).read_text()
 
     initial = {
@@ -64,6 +68,7 @@ def cmd_run(args):
 
 
 def _print_progress(event: dict):
+    """Render a compact progress summary for the current graph state."""
     transitions = []
     if event.get("extracted_logic"):
         transitions.append("extracted")
@@ -84,6 +89,7 @@ def _print_progress(event: dict):
 
 
 def _handle_interrupt(app, config, run_id: str, auto_answer: str | None) -> dict:
+    """Collect answers for pending questions and shape them for graph resume."""
     cols = collections()
     questions = list(cols["pending_questions"].find({"run_id": run_id}, {"_id": 0}))
 
@@ -111,6 +117,7 @@ def _handle_interrupt(app, config, run_id: str, auto_answer: str | None) -> dict
 
 
 def main():
+    """Parse CLI arguments and dispatch to the selected subcommand."""
     p = argparse.ArgumentParser(prog="qa-agent")
     sub = p.add_subparsers(dest="cmd", required=True)
 

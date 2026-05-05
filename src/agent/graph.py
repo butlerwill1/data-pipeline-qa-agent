@@ -1,3 +1,10 @@
+"""LangGraph definition for the end-to-end data QA workflow.
+
+This module is the assembly point for the agent. It wires together the node
+modules, defines the one conditional branch in the workflow, and attaches a
+MongoDB-backed checkpointer so interrupted or resumed runs keep their state.
+"""
+
 import os
 
 from langgraph.checkpoint.mongodb import MongoDBSaver
@@ -22,6 +29,12 @@ MAX_ITERATIONS = int(os.getenv("MAX_ITERATIONS", "2"))
 
 
 def gaps_remain(state: State) -> str:
+    """Route back to user context collection while important gaps still remain.
+
+    This router is intentionally simple: if the gap detector still has
+    questions and the loop count is below the configured maximum, the graph goes
+    back through the interrupt path. Otherwise it moves on to synthesis.
+    """
     iter_count = state.get("iteration_count", 0) or 0
     gaps = state.get("knowledge_gaps", []) or []
     if gaps and iter_count < MAX_ITERATIONS:
@@ -30,8 +43,10 @@ def gaps_remain(state: State) -> str:
 
 
 def build_graph() -> StateGraph:
+    """Assemble the QA workflow graph and its node transitions."""
     g = StateGraph(State)
 
+    # Register every functional step before defining the edges between them.
     g.add_node("load_inputs", load_inputs)
     g.add_node("extract_pipeline_logic", extract_pipeline_logic)
     g.add_node("profile_tables", profile_tables)
@@ -51,6 +66,8 @@ def build_graph() -> StateGraph:
     g.add_edge("profile_tables", "retrieve_prior_understanding")
     g.add_edge("retrieve_prior_understanding", "identify_knowledge_gaps")
 
+    # This is the only branching point in the graph. The rest of the workflow
+    # is linear once enough context has been gathered.
     g.add_conditional_edges(
         "identify_knowledge_gaps",
         gaps_remain,
@@ -71,6 +88,12 @@ def build_graph() -> StateGraph:
 
 
 def compiled_graph():
+    """Compile the graph with MongoDB-backed checkpoint persistence.
+
+    ``MongoDBSaver`` stores LangGraph's internal checkpoint data in the same
+    database cluster as the application's run artefacts, which makes pause,
+    resume, and state inspection straightforward.
+    """
     g = build_graph()
     db_name = os.getenv("MONGO_DB_NAME", "qa_agent")
     saver = MongoDBSaver(client=get_client(), db_name=db_name)

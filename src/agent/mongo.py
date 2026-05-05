@@ -1,3 +1,10 @@
+"""MongoDB connection, collection, and indexing helpers for run persistence.
+
+MongoDB serves two roles in this project:
+- application persistence for runs, questions, answers, findings, and reports
+- checkpoint persistence for LangGraph through ``MongoDBSaver`` in ``graph.py``
+"""
+
 import os
 from datetime import datetime, timezone
 from urllib.parse import quote_plus
@@ -13,6 +20,11 @@ _client: MongoClient | None = None
 
 
 def get_client() -> MongoClient:
+    """Create and cache the MongoDB client from environment configuration.
+
+    The function supports both a full connection string and a legacy
+    username/password/host configuration so local setups remain flexible.
+    """
     global _client
     if _client is None:
         conn = os.getenv("conn_string") or os.getenv("MONGODB_URI")
@@ -24,16 +36,24 @@ def get_client() -> MongoClient:
             host = os.getenv("MONGO_HOST")
             if not host:
                 raise RuntimeError("conn_string preferred; or set MONGO_HOST")
+            # Quote credentials because Atlas usernames and passwords may
+            # contain characters that are special in URIs.
             conn = f"mongodb+srv://{quote_plus(user)}:{quote_plus(pw)}@{host}/?retryWrites=true&w=majority"
         _client = MongoClient(conn)
     return _client
 
 
 def get_db():
+    """Return the configured MongoDB database handle."""
     return get_client()[DB_NAME]
 
 
 def collections():
+    """Return the collections used throughout the QA workflow.
+
+    Centralising collection lookup keeps collection names consistent across the
+    CLI, daemon, API, and node modules.
+    """
     db = get_db()
     return {
         "pipeline_runs": db.pipeline_runs,
@@ -47,10 +67,16 @@ def collections():
 
 
 def now_utc() -> datetime:
+    """Return the current timezone-aware UTC timestamp."""
     return datetime.now(timezone.utc)
 
 
 def ensure_indexes() -> None:
+    """Create the indexes required for run lookup and resume operations.
+
+    This is safe to call repeatedly during startup because MongoDB creates
+    indexes idempotently when the definition matches an existing one.
+    """
     cols = collections()
     cols["pipeline_runs"].create_index("status")
     cols["pipeline_runs"].create_index("run_id", unique=True)
@@ -64,6 +90,11 @@ def ensure_indexes() -> None:
 
 
 def update_run_status(run_id: str, status: str, **extra) -> None:
+    """Update the canonical run status document with optional extra fields.
+
+    Many modules only need to bump the run's status or current node. This helper
+    ensures all such writes also refresh ``updated_at`` consistently.
+    """
     cols = collections()
     cols["pipeline_runs"].update_one(
         {"run_id": run_id},

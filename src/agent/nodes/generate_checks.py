@@ -1,3 +1,10 @@
+"""Turn table understanding into concrete SQL QA checks.
+
+This node converts high-level reasoning into executable validation logic. It
+constrains the model with authoritative column names gathered from Glue so the
+generated Athena SQL stays grounded in the real schemas.
+"""
+
 from ..llm import call_structured
 from ..mongo import update_run_status
 from ..state import State
@@ -29,6 +36,12 @@ Reference QA SQL shapes the team has used before:
 
 
 def generate_qa_checks(state: State) -> dict:
+    """Generate candidate QA checks grounded in the profiled table schemas.
+
+    Only table understandings that parsed successfully are used. If every table
+    understanding failed, the node returns an empty check list and later nodes
+    will effectively no-op.
+    """
     update_run_status(state["run_id"], "running", current_node="generate_qa_checks")
 
     full_understanding = state.get("table_understanding", {}) or {}
@@ -36,6 +49,8 @@ def generate_qa_checks(state: State) -> dict:
         tid: u for tid, u in full_understanding.items() if not u.get("parsing_failed")
     }
     if not understanding:
+        # Avoid asking the model for checks when there is no trustworthy table
+        # understanding to base them on.
         return {"candidate_checks": []}
     prior = state.get("prior_context", {})
     profiles = state.get("table_profiles", {})
@@ -45,6 +60,8 @@ def generate_qa_checks(state: State) -> dict:
         meta = profile.get("metadata", {}) or {}
         cols = meta.get("columns", []) or []
         partitions = meta.get("partition_keys", []) or []
+        # Flatten schema details into prompt text because the model only needs
+        # column names and partition keys here, not the full Glue payload.
         schema_block_lines.append(
             f"- {table_id}: columns=[{', '.join(c['name'] for c in cols)}]"
             + (f", partitions=[{', '.join(p['name'] for p in partitions)}]" if partitions else "")
@@ -68,6 +85,8 @@ def generate_qa_checks(state: State) -> dict:
         "Generate 4-8 useful checks across the tables. Reference only the columns listed above."
     )
 
+    # The output is still only a proposal. Actual execution happens in the next
+    # node through the Athena guardrails.
     out = call_structured(system, user, SCHEMA, max_tokens=3072)
     checks = out.get("checks", []) if isinstance(out, dict) else []
     return {"candidate_checks": checks}

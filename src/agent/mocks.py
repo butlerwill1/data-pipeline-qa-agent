@@ -3,7 +3,8 @@
 Lets us exercise the LangGraph wiring, MongoDB writes, interrupt/resume,
 and Atlas Vector Search without needing Bedrock, Athena, Glue, or Voyage
 credentials. The mocks are tuned to the UK smart meter pipeline so the
-output looks realistic in a demo.
+output looks realistic in a demo while remaining deterministic enough for
+repeatable local testing.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ import random
 
 
 def is_dry_run() -> bool:
+    """Return whether the agent should use deterministic mock responses."""
     return os.getenv("DRY_RUN") == "1"
 
 
@@ -42,10 +44,16 @@ _TABLE_HINTS = {
 
 
 def _short(table_id: str) -> str:
+    """Return the final segment of a qualified table identifier."""
     return table_id.split(".")[-1]
 
 
 def mock_extract_pipeline_logic(source_tables: list[str], dest_tables: list[str]) -> dict:
+    """Return representative extracted pipeline logic for demo runs.
+
+    The shape mirrors the schema expected from the real extraction node so the
+    rest of the graph can run unchanged.
+    """
     return {
         "confirmed_source_tables": [
             {"id": t, "evidence": f"spark.read.parquet referencing {t} location"}
@@ -74,6 +82,11 @@ def mock_extract_pipeline_logic(source_tables: list[str], dest_tables: list[str]
 
 
 def mock_identify_gaps(business_context: list[dict]) -> dict:
+    """Return context questions only when the mock business context is incomplete.
+
+    The demo flow is designed so mentioning a 9am cutoff satisfies the only
+    missing freshness assumption and allows the graph to continue.
+    """
     if any("9am" in (bc.get("answer") or "").lower() for bc in business_context):
         return {"gaps": []}
     return {
@@ -88,6 +101,11 @@ def mock_identify_gaps(business_context: list[dict]) -> dict:
 
 
 def mock_update_understanding(table_id: str, business_context: list[dict]) -> dict:
+    """Build a plausible table understanding document for a demo table.
+
+    This keeps the same broad field structure as the real LLM output so
+    downstream persistence, embeddings, and reporting behave normally.
+    """
     short = _short(table_id)
     hint = _TABLE_HINTS.get(short, {
         "role": "table",
@@ -137,10 +155,17 @@ def mock_update_understanding(table_id: str, business_context: list[dict]) -> di
 
 
 def mock_generate_checks(table_understanding: dict) -> dict:
+    """Generate a small fixed set of QA checks for dry-run workflows.
+
+    The generated SQL is intentionally simple but still representative of the
+    kinds of freshness and row-count checks the real planner emits.
+    """
     checks = []
     for table_id, _u in table_understanding.items():
         short = _short(table_id)
         db, _, name = table_id.partition(".")
+        # Emit one freshness check and one row-count trend check per table, then
+        # cap the overall list to keep demo runs concise.
         checks.append({
             "id": f"chk_freshness_{short}",
             "name": f"Freshness of {short}",
@@ -165,6 +190,11 @@ def mock_generate_checks(table_understanding: dict) -> dict:
 
 
 def mock_interpret_results(executed: list[dict]) -> dict:
+    """Translate mock query outputs into pass-oriented findings.
+
+    The mock interpreter assumes the synthetic query results are healthy so the
+    dry demo produces a coherent end-to-end success path.
+    """
     findings = []
     for q in executed:
         if q.get("category") == "freshness":
@@ -189,6 +219,11 @@ def mock_interpret_results(executed: list[dict]) -> dict:
 
 
 def mock_final_report(table_understanding: dict, findings: list[dict]) -> str:
+    """Assemble a Markdown report from mocked understandings and findings.
+
+    This mirrors the tone and section structure of the real report-writing node
+    without requiring a live model call.
+    """
     sev = {"pass": 0, "warn": 0, "fail": 0}
     for f in findings:
         sev[f.get("severity", "pass")] = sev.get(f.get("severity", "pass"), 0) + 1
@@ -222,6 +257,11 @@ Reviewed {len(table_understanding)} tables across the smart meter pipeline. Seve
 
 
 def mock_glue_metadata(table_id: str) -> dict:
+    """Return a deterministic schema payload for known demo tables.
+
+    The schema is intentionally realistic enough to constrain QA generation and
+    to exercise the profile and understanding nodes.
+    """
     short = _short(table_id)
     db, _, name = (table_id.partition(".") if "." in table_id else ("energy_smart_meter", "", table_id))
     cols_by_table = {
@@ -260,6 +300,11 @@ def mock_glue_metadata(table_id: str) -> dict:
 
 
 def mock_athena_run(sql: str) -> dict:
+    """Return a bounded synthetic Athena result for a dry-run SQL statement.
+
+    The result patterns depend on the query shape so later interpretation logic
+    sees something plausibly tied to the generated SQL.
+    """
     sql_lower = sql.lower()
     if "count(*)" in sql_lower and "group by" not in sql_lower:
         rows = [{"row_count": "12480394"}]
@@ -275,6 +320,8 @@ def mock_athena_run(sql: str) -> dict:
     else:
         rows = [{"value": "ok"}]
 
+    # Keep the result payload aligned with the real Athena wrapper so the rest
+    # of the graph does not need special-case demo logic.
     return {
         "status": "ok",
         "sql": sql,
@@ -288,5 +335,10 @@ def mock_athena_run(sql: str) -> dict:
 
 
 def mock_embedding(_text: str) -> list[float]:
+    """Generate a deterministic pseudo-embedding for dry-run vector search.
+
+    Seeding the random generator with the input text gives stable vectors for
+    repeatable demo behavior without requiring an external embedding API.
+    """
     rng = random.Random(_text)
     return [rng.uniform(-0.1, 0.1) for _ in range(1024)]

@@ -1,3 +1,10 @@
+"""Glue metadata helpers used to profile source and destination tables.
+
+The profiling node needs authoritative schema information before it asks the
+LLM to reason about columns or before it generates SQL. This wrapper converts
+Glue responses into a compact, agent-friendly metadata document.
+"""
+
 import os
 
 import boto3
@@ -15,6 +22,7 @@ _glue = None
 
 
 def client():
+    """Lazily create and cache the Glue boto3 client."""
     global _glue
     if _glue is None:
         _glue = boto3.client("glue", region_name=AWS_REGION)
@@ -22,6 +30,11 @@ def client():
 
 
 def _resolve(table_id: str) -> tuple[str, str]:
+    """Split a table identifier into database and table name.
+
+    Table ids may arrive either as ``db.table`` or just ``table``. When the
+    database is missing, the configured default Glue database is used.
+    """
     if "." in table_id:
         db, name = table_id.split(".", 1)
     else:
@@ -30,6 +43,11 @@ def _resolve(table_id: str) -> tuple[str, str]:
 
 
 def get_table_metadata(table_id: str) -> dict:
+    """Fetch table metadata from Glue or return a structured error payload.
+
+    Errors are returned as data rather than raised so the graph can continue and
+    record partial progress even when a table cannot be resolved.
+    """
     if mocks.is_dry_run():
         return mocks.mock_glue_metadata(table_id)
     db, name = _resolve(table_id)
@@ -40,6 +58,8 @@ def get_table_metadata(table_id: str) -> dict:
 
     t = resp["Table"]
     sd = t.get("StorageDescriptor", {})
+    # Flatten the Glue table shape into a predictable document with just the
+    # fields downstream reasoning nodes actually consume.
     cols = [
         {"name": c["Name"], "type": c["Type"], "comment": c.get("Comment")}
         for c in sd.get("Columns", [])

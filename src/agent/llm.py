@@ -1,3 +1,10 @@
+"""LLM client selection plus freeform and structured response helpers.
+
+The graph relies heavily on structured model outputs. This module centralises
+provider selection, client caching, dry-run behavior, and the JSON-parsing
+logic needed to keep the rest of the codebase provider-agnostic.
+"""
+
 import json
 import os
 
@@ -11,6 +18,11 @@ load_dotenv()
 
 
 def _provider() -> str:
+    """Choose the active LLM provider based on environment configuration.
+
+    The selection order prefers an explicit override first, then Bedrock, then
+    OpenRouter, and finally direct Anthropic.
+    """
     explicit = os.getenv("LLM_PROVIDER")
     if explicit:
         return explicit.lower()
@@ -30,6 +42,11 @@ _clients: dict[str, object] = {}
 
 
 def _client(provider: str):
+    """Create and cache a client for the requested provider.
+
+    Different providers expose slightly different client objects, so callers use
+    ``call`` and ``call_structured`` instead of touching this directly.
+    """
     if provider in _clients:
         return _clients[provider]
     if provider == "bedrock":
@@ -45,11 +62,20 @@ def _client(provider: str):
 
 
 def call(system: str, user: str, max_tokens: int = 2048, model: str | None = None) -> str:
+    """Send a freeform prompt to the configured model provider.
+
+    Args:
+        system: High-level role and behavioral instructions.
+        user: Task-specific request and evidence payload.
+        max_tokens: Maximum output token budget.
+        model: Optional provider-specific model override.
+    """
     if mocks.is_dry_run():
         return _mock_freeform(system, user)
 
     provider = _provider()
     if provider == "openrouter":
+        # OpenRouter exposes an OpenAI-compatible chat-completions surface.
         m = model or OPENROUTER_MODEL
         resp = _client(provider).chat.completions.create(
             model=m,
@@ -62,6 +88,8 @@ def call(system: str, user: str, max_tokens: int = 2048, model: str | None = Non
         return resp.choices[0].message.content or ""
 
     m = model or (BEDROCK_MODEL if provider == "bedrock" else ANTHROPIC_MODEL)
+    # Anthropic and Bedrock share the messages API shape, so they can use the
+    # same call path once the model name is chosen.
     resp = _client(provider).messages.create(
         model=m,
         max_tokens=max_tokens,
@@ -72,6 +100,11 @@ def call(system: str, user: str, max_tokens: int = 2048, model: str | None = Non
 
 
 def _strip_fence(raw: str) -> str:
+    """Remove surrounding Markdown fences from model output when present.
+
+    Some providers or prompt variants still wrap JSON in code fences even when
+    asked not to. This helper normalises that before JSON parsing.
+    """
     raw = raw.strip()
     if raw.startswith("```"):
         first_newline = raw.find("\n")
@@ -85,14 +118,17 @@ def _strip_fence(raw: str) -> str:
 def call_structured(system: str, user: str, schema_hint: str, max_tokens: int = 2048) -> dict:
     """Asks the model to emit JSON matching a schema hint and parses it.
 
-    On OpenRouter we use the API's JSON mode (response_format=json_object) which
-    guarantees syntactic validity at the provider level. On Bedrock/Anthropic we
-    fall back to ask-nicely-and-parse with bracket recovery.
+    On OpenRouter we use the API's JSON mode (``response_format=json_object``),
+    which guarantees syntactic validity at the provider level. On
+    Bedrock/Anthropic we fall back to ask-nicely-and-parse with bracket
+    recovery.
     """
     if mocks.is_dry_run():
         return _mock_structured(system, user, schema_hint)
 
     provider = _provider()
+    # Extend the system prompt with explicit output constraints so each node can
+    # keep its task-specific instructions separate from the JSON-only contract.
     extended_system = (
         f"{system}\n\n"
         f"Respond with valid JSON only matching this shape:\n{schema_hint}\n"
@@ -100,6 +136,7 @@ def call_structured(system: str, user: str, schema_hint: str, max_tokens: int = 
     )
 
     if provider == "openrouter":
+        # Prefer the provider's native JSON mode when it exists.
         resp = _client(provider).chat.completions.create(
             model=OPENROUTER_MODEL,
             max_tokens=max_tokens,
@@ -116,6 +153,7 @@ def call_structured(system: str, user: str, schema_hint: str, max_tokens: int = 
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
+        # Try to salvage the first JSON object or array from an otherwise chatty response.
         s = raw.find("{")
         e = raw.rfind("}")
         if s >= 0 and e > s:
@@ -136,12 +174,19 @@ def call_structured(system: str, user: str, schema_hint: str, max_tokens: int = 
 # ---- mock dispatch (DRY_RUN=1) ----
 
 def _mock_freeform(system: str, user: str) -> str:
+    """Route freeform prompts to deterministic dry-run fixtures."""
     if "QA report in Markdown" in system or "Executive Summary" in system:
         return mocks.mock_final_report({}, [])
     return "Mocked response."
 
 
 def _mock_structured(system: str, user: str, schema_hint: str) -> dict:
+    """Route structured prompts to deterministic dry-run fixtures.
+
+    The dispatch rules are intentionally lightweight. They inspect the prompt
+    shape to infer which node is asking and then return the matching canned
+    payload from ``mocks.py``.
+    """
     text = (system + " " + schema_hint).lower()
     if "candidate_grain_columns" in text:
         srcs = _between(user, "Source tables (claimed by the operator):", "\n")
@@ -164,6 +209,7 @@ def _mock_structured(system: str, user: str, schema_hint: str) -> dict:
 
 
 def _between(text: str, start: str, end: str) -> str:
+    """Extract text between two markers, tolerating a missing end marker."""
     i = text.find(start)
     if i < 0:
         return ""
@@ -174,6 +220,7 @@ def _between(text: str, start: str, end: str) -> str:
 
 
 def _listify(s: str) -> list[str]:
+    """Turn a lightweight bracketed string list into Python strings."""
     s = s.strip().strip("[]")
     if not s:
         return []
@@ -181,11 +228,13 @@ def _listify(s: str) -> list[str]:
 
 
 def _extract_table_id(user: str) -> str:
+    """Recover the current table identifier from a structured prompt body."""
     line = _between(user, "Table:", "\n")
     return line.strip()
 
 
 def _recover_understandings(user: str) -> dict:
+    """Infer which demo tables were referenced in a dry-run prompt."""
     out = {}
     for t in (
         "energy_smart_meter.raw_external_smart_meter",
@@ -198,6 +247,7 @@ def _recover_understandings(user: str) -> dict:
 
 
 def _recover_executed(user: str) -> list[dict]:
+    """Infer a minimal executed-query payload for dry-run interpretation."""
     rows = []
     for cat in ("freshness", "row_count"):
         if cat in user:

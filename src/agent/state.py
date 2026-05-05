@@ -1,7 +1,23 @@
+"""Shared typed state contract passed between LangGraph nodes.
+
+The graph uses a single mutable logical state. Each node receives some subset
+of these fields and returns a partial update, which LangGraph merges back into
+the checkpointed run state.
+"""
+
 from typing import TypedDict, Optional
 
 
 class State(TypedDict, total=False):
+    """State payload accumulated across the QA workflow.
+
+    Fields fall into a few categories:
+    - run identity and input material
+    - intermediate reasoning artefacts
+    - user clarification context
+    - generated checks, execution results, and final report output
+    """
+
     run_id: str
     pipeline_path: str
     pipeline_code: str

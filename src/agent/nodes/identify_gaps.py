@@ -1,3 +1,10 @@
+"""Decide whether more business context is needed before QA.
+
+This node inspects the pipeline extraction, profiling, prior memory, and any
+already-collected user context to determine whether the agent can write useful
+checks confidently or needs to ask the operator a few targeted questions first.
+"""
+
 from ..llm import call_structured
 from ..mongo import update_run_status
 from ..state import State
@@ -14,6 +21,12 @@ SCHEMA = """{
 
 
 def identify_knowledge_gaps(state: State) -> dict:
+    """Identify the highest-impact open questions blocking accurate QA checks.
+
+    Returns a ``knowledge_gaps`` list containing up to three ranked questions.
+    The graph router decides whether to loop back through the human interrupt
+    path based on the returned list and the iteration count.
+    """
     update_run_status(state["run_id"], "running", current_node="identify_knowledge_gaps")
 
     extracted = state.get("extracted_logic") or {}
@@ -38,6 +51,8 @@ def identify_knowledge_gaps(state: State) -> dict:
         "What 0-3 most-important questions should we ask the user now?"
     )
 
+    # Keep the output constrained so the routing logic only has to reason about
+    # a simple list of gaps instead of arbitrary prose.
     out = call_structured(system, user, SCHEMA, max_tokens=1024)
     gaps = out.get("gaps", []) if isinstance(out, dict) else []
     return {"knowledge_gaps": gaps}

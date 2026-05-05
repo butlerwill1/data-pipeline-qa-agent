@@ -1,3 +1,10 @@
+"""Render the final Markdown report for a QA run.
+
+This node turns the run's accumulated evidence into a single human-readable
+summary. The report is intentionally concise and uses only successfully parsed
+table understandings plus the interpreted findings from the previous node.
+"""
+
 from .. import mocks
 from ..llm import call
 from ..mongo import collections, now_utc, update_run_status
@@ -5,6 +12,11 @@ from ..state import State
 
 
 def write_final_report(state: State) -> dict:
+    """Create and persist the final Markdown report for the run.
+
+    The report is stored separately from findings so consumers can fetch either
+    the granular artefacts or the final narrative summary.
+    """
     update_run_status(state["run_id"], "running", current_node="write_final_report")
 
     full_understanding = state.get("table_understanding", {}) or {}
@@ -18,6 +30,8 @@ def write_final_report(state: State) -> dict:
     executed = state.get("executed_queries", [])
 
     if mocks.is_dry_run():
+        # Dry-run mode bypasses the model so demo environments can still show a
+        # realistic end-to-end report without external credentials.
         md = mocks.mock_final_report(understanding, findings)
     else:
         system = (
@@ -38,6 +52,8 @@ def write_final_report(state: State) -> dict:
         )
         md = call(system, user, max_tokens=4096)
 
+    # Store a small rollup beside the markdown so list views do not need to
+    # parse the full report text to show pass/warn/fail counts.
     severity_summary = {
         "pass": sum(1 for f in findings if f.get("severity") == "pass"),
         "warn": sum(1 for f in findings if f.get("severity") == "warn"),

@@ -1,3 +1,11 @@
+"""Athena query helpers with read-only validation and runtime guardrails.
+
+The rest of the agent does not talk to boto3 directly. Instead it calls this
+module, which enforces a narrow, read-only query policy and normalises the
+response into a small record that is safe to store in MongoDB and easy for
+later nodes to interpret.
+"""
+
 import os
 import re
 import time
@@ -27,6 +35,11 @@ _athena = None
 
 
 def client():
+    """Lazily create and cache the Athena boto3 client.
+
+    Reusing one client keeps the wrapper cheap to call from multiple nodes in a
+    single process.
+    """
     global _athena
     if _athena is None:
         _athena = boto3.client("athena", region_name=AWS_REGION)
@@ -34,7 +47,12 @@ def client():
 
 
 def validate(sql: str) -> tuple[bool, str]:
-    """Returns (ok, normalised_sql_or_reason). Adds LIMIT to SELECT/WITH if missing."""
+    """Validate that SQL is read-only and normalise it for bounded execution.
+
+    The return value is ``(ok, payload)`` where ``payload`` is either:
+    - the cleaned SQL statement when validation succeeds
+    - a rejection reason when validation fails
+    """
     if _FORBIDDEN.search(sql):
         return False, "contains forbidden DDL/DML keyword"
     m = _SELECT_LIKE.match(sql)
@@ -43,11 +61,18 @@ def validate(sql: str) -> tuple[bool, str]:
     verb = m.group(1).upper()
     cleaned = sql.rstrip(";").rstrip()
     if verb in ("SELECT", "WITH") and "limit" not in cleaned.lower():
+        # Add a defensive limit so an LLM-generated query does not accidentally
+        # return an unbounded result set.
         cleaned = f"{cleaned} LIMIT 1000"
     return True, cleaned
 
 
 def run(sql: str, database: str | None = None) -> dict:
+    """Execute a validated Athena query and return a compact result summary.
+
+    The result intentionally keeps only high-signal fields: status, query id,
+    runtime, bytes scanned, row count, and a small sample of the rows returned.
+    """
     ok, normalised = validate(sql)
     if not ok:
         return {"status": "rejected", "reason": normalised, "sql": sql}
@@ -57,6 +82,8 @@ def run(sql: str, database: str | None = None) -> dict:
         return mocks.mock_athena_run(sql)
 
     db = database or DEFAULT_DB
+    # Build the boto3 request incrementally so optional output-location
+    # configuration can be applied only when the environment provides it.
     kwargs = {
         "QueryString": sql,
         "QueryExecutionContext": {"Database": db},
@@ -71,6 +98,7 @@ def run(sql: str, database: str | None = None) -> dict:
     state = "RUNNING"
     info = {}
     while state in ("RUNNING", "QUEUED"):
+        # Stop runaway queries so the agent does not hang on a bad check.
         if time.time() - started > QUERY_TIMEOUT:
             try:
                 client().stop_query_execution(QueryExecutionId=qid)
@@ -91,6 +119,8 @@ def run(sql: str, database: str | None = None) -> dict:
 
     bytes_scanned = info["Statistics"].get("DataScannedInBytes", 0)
 
+    # Athena returns the first row as column headers. Convert the remaining rows
+    # into dictionaries so downstream nodes can reason over named values.
     rows = client().get_query_results(QueryExecutionId=qid, MaxResults=MAX_RESULT_ROWS)
     raw_rows = rows["ResultSet"]["Rows"]
     headers: list[str] = []
