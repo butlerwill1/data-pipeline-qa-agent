@@ -46,7 +46,14 @@ def build_graph() -> StateGraph:
     """Assemble the QA workflow graph and its node transitions."""
     g = StateGraph(State)
 
-    # Register every functional step before defining the edges between them.
+    # Nodes are the actual units of work in the graph. Each node is just a
+    # Python function that receives the current shared state and returns a
+    # partial state update. In this project, each node corresponds to one stage
+    # of the QA workflow such as profiling tables, generating checks, or writing
+    # the final report.
+    #
+    # Defining a node here does not say when it runs, only that it exists and
+    # what function LangGraph should call when execution reaches that step.
     g.add_node("load_inputs", load_inputs)
     g.add_node("extract_pipeline_logic", extract_pipeline_logic)
     g.add_node("profile_tables", profile_tables)
@@ -60,14 +67,28 @@ def build_graph() -> StateGraph:
     g.add_node("write_final_report", write_final_report)
     g.add_node("persist_run", persist_run)
 
+    # Edges define control flow between nodes.
+    #
+    # You can think of an edge as an arrow from one step to the next:
+    # "after node A finishes, go to node B".
+    #
+    # START and END are special built-in markers from LangGraph:
+    # - START means "where execution begins"
+    # - END means "the graph is finished"
     g.add_edge(START, "load_inputs")
     g.add_edge("load_inputs", "extract_pipeline_logic")
     g.add_edge("extract_pipeline_logic", "profile_tables")
     g.add_edge("profile_tables", "retrieve_prior_understanding")
     g.add_edge("retrieve_prior_understanding", "identify_knowledge_gaps")
 
-    # This is the only branching point in the graph. The rest of the workflow
-    # is linear once enough context has been gathered.
+    # Most of the graph is a straight line, but here we add a conditional edge.
+    # Instead of always going to one fixed next node, LangGraph calls the
+    # router function ``gaps_remain`` and uses the returned string to decide
+    # which edge to follow.
+    #
+    # In other words:
+    # - if there are still important unanswered questions, go ask the user
+    # - otherwise continue with understanding synthesis
     g.add_conditional_edges(
         "identify_knowledge_gaps",
         gaps_remain,
@@ -76,7 +97,15 @@ def build_graph() -> StateGraph:
             "update_table_understanding": "update_table_understanding",
         },
     )
+
+    # This edge creates the feedback loop in the graph. After asking the user
+    # for business context and resuming, the graph returns to the gap-checking
+    # node to see whether enough clarification has now been gathered.
     g.add_edge("ask_business_context", "identify_knowledge_gaps")
+
+    # Once the graph has enough context, execution becomes linear again:
+    # understand tables -> generate checks -> run checks -> interpret evidence
+    # -> write report -> mark run complete.
     g.add_edge("update_table_understanding", "generate_qa_checks")
     g.add_edge("generate_qa_checks", "run_qa_queries")
     g.add_edge("run_qa_queries", "interpret_results")
