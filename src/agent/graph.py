@@ -125,5 +125,36 @@ def compiled_graph():
     """
     g = build_graph()
     db_name = os.getenv("MONGO_DB_NAME", "qa_agent")
+    # ``MongoDBSaver`` is LangGraph's checkpoint backend. It is not one of this
+    # application's own collections such as ``pipeline_runs`` or
+    # ``table_understandings``. Instead, it is the persistence layer LangGraph
+    # uses to save the graph's internal execution state between steps.
+    #
+    # In practice that means:
+    # - the current state payload can be recovered after each node runs
+    # - interrupt/resume works because paused state is stored durably
+    # - ``app.get_state(...)`` can read the latest checkpointed graph state
+    #
+    # These checkpoint writes go to LangGraph-managed MongoDB collections, not
+    # to the application collections returned by ``mongo.collections()``.
     saver = MongoDBSaver(client=get_client(), db_name=db_name)
+    # ``g.compile(...)`` turns the graph definition into an executable LangGraph
+    # app. Passing ``checkpointer=saver`` tells LangGraph:
+    #
+    # "whenever this graph advances, persist its internal checkpoint state using
+    # this MongoDB-backed saver".
+    #
+    # So yes, this is one of the places where MongoDB gets written to, but only
+    # for LangGraph checkpoint data.
+    #
+    # It is not the only place MongoDB is written to in this codebase. The node
+    # modules and run-service helpers also perform explicit application-level
+    # writes such as:
+    # - ``pipeline_runs`` lifecycle updates
+    # - ``pending_questions`` and ``user_answers``
+    # - ``table_understandings``, ``executed_queries``, ``findings``
+    # - ``final_reports``
+    #
+    # Those writes are separate from checkpoint persistence and are done by
+    # explicit calls to ``insert_one``, ``update_one``, ``delete_many``, etc.
     return g.compile(checkpointer=saver)

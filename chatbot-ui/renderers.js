@@ -1,8 +1,16 @@
 /* Summary: Rendering helpers for the local phase 1 QA operator console. */
 
+/*
+ * renderers.js is deliberately stateless except for storedText, which supports
+ * copy buttons for generated SQL. chat.js decides when something should appear;
+ * this file only turns structured snapshot data into HTML fragments.
+ */
+
 const storedText = {};
 
 function esc(value) {
+  // Escape text before inserting it into HTML. Most renderer inputs originate
+  // from pipeline files, LLM output, query samples, or persisted run records.
   return String(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -10,10 +18,13 @@ function esc(value) {
 }
 
 function escAttr(value) {
+  // Attribute values need the normal HTML escaping plus quote protection.
   return esc(value).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function formatDateTime(value) {
+  // Keep all visible timestamps in one locale format so history cards and run
+  // summary updates stay consistent.
   if (!value) return 'Not available';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return esc(String(value));
@@ -27,12 +38,16 @@ function formatDateTime(value) {
 }
 
 function formatRuntime(ms) {
+  // Query runtimes are stored in milliseconds; show sub-second runs precisely
+  // and longer runs in compact seconds.
   if (ms == null) return 'Not timed';
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
 function statusLabel(status) {
+  // Human-readable labels for run statuses and check severities. Unknown values
+  // are still displayed after replacing underscores.
   const labels = {
     awaiting_user: 'Awaiting user',
     complete: 'Complete',
@@ -46,10 +61,13 @@ function statusLabel(status) {
 }
 
 function statusClass(status) {
+  // Status values become CSS class suffixes, so strip anything unsafe.
   return String(status || 'unknown').replace(/[^a-z0-9_-]/gi, '-').toLowerCase();
 }
 
 function inlineFormat(text) {
+  // Minimal inline markdown used for short controlled strings. Full report
+  // markdown is handled by markdownToHtml().
   let html = esc(text);
   html = html.replace(/`([^`]+)`/g, '<code class="inline">$1</code>');
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
@@ -58,6 +76,11 @@ function inlineFormat(text) {
 }
 
 function markdownToHtml(markdown) {
+  /*
+   * Final reports are stored as Markdown. The page loads marked from a CDN for
+   * GitHub-flavoured Markdown; if that script is unavailable, the raw report is
+   * still shown safely in a preformatted block.
+   */
   const text = String(markdown || '').trim();
   if (!text) return '<p>No report content available.</p>';
   if (typeof window.marked !== 'undefined') {
@@ -69,6 +92,7 @@ function markdownToHtml(markdown) {
 }
 
 function fmtCell(value) {
+  // Normalise table sample values before inserting them into evidence tables.
   if (value == null) return '<span class="empty-cell">null</span>';
   if (typeof value === 'number') return value.toLocaleString('en-GB');
   if (typeof value === 'object') return esc(JSON.stringify(value));
@@ -76,6 +100,8 @@ function fmtCell(value) {
 }
 
 function renderTable(rows, options = {}) {
+  // Query result samples are rendered from object arrays. The first row defines
+  // the displayed column order, matching the shape returned by the backend.
   if (!rows || !rows.length) {
     return `<div class="table-empty">${esc(options.emptyMessage || 'No sample rows returned.')}</div>`;
   }
@@ -97,6 +123,8 @@ function renderTable(rows, options = {}) {
 }
 
 function renderInfoCard(title, bodyHtml, options = {}) {
+  // Shared card shell for run updates, validation errors, questions, findings,
+  // and query result groups. The caller owns bodyHtml and should escape values.
   const kicker = options.kicker
     ? `<div class="message-kicker">${esc(options.kicker)}</div>`
     : '';
@@ -115,6 +143,11 @@ function renderInfoCard(title, bodyHtml, options = {}) {
 }
 
 function renderQuestionForm(runId, questions) {
+  /*
+   * The agent can pause for operator context. Each pending question receives a
+   * textarea keyed by question_id so submitPendingAnswers() can send the exact
+   * backend IDs back without guessing from visible text.
+   */
   const blocks = questions
     .map((question, index) => `
       <div class="question-block">
@@ -159,6 +192,8 @@ function renderQuestionForm(runId, questions) {
 }
 
 function renderFindings(findings) {
+  // Findings are the high-level quality assessment records written by the graph.
+  // Each card is tagged by severity for consistent colour treatment.
   const cards = findings
     .map((finding) => `
       <article class="finding-card severity-${statusClass(finding.severity)}">
@@ -185,6 +220,8 @@ function renderFindings(findings) {
 }
 
 function renderCode(title, sql) {
+  // Store raw SQL under an opaque key so the copy button can copy unhighlighted
+  // text while the visible code block receives simple syntax highlighting.
   const key = `stored-text-${Object.keys(storedText).length + 1}`;
   storedText[key] = sql;
 
@@ -205,6 +242,11 @@ function renderCode(title, sql) {
 }
 
 function renderQueryResults(queries) {
+  /*
+   * Executed checks combine metadata, generated SQL, optional errors, and sample
+   * rows. This renderer keeps each check self-contained so long reports remain
+   * scannable.
+   */
   const cards = queries
     .map((query) => {
       const meta = [
@@ -252,6 +294,8 @@ function renderQueryResults(queries) {
 }
 
 function renderMarkdownDocument(title, markdown, downloadUrl) {
+  // The final QA report is rendered inside .doc-card. Its visual boundaries are
+  // controlled by .doc-card and .markdown-body in style.css.
   const downloadLink = downloadUrl
     ? `<a class="doc-link" href="${escAttr(downloadUrl)}" target="_blank" rel="noreferrer">Open markdown document</a>`
     : '';
@@ -271,6 +315,7 @@ function renderMarkdownDocument(title, markdown, downloadUrl) {
 }
 
 function copyStoredText(event) {
+  // Copy button handler shared by every generated SQL block.
   const button = event.currentTarget;
   const key = button.getAttribute('data-copy-key');
   const text = storedText[key] || '';
@@ -284,6 +329,8 @@ function copyStoredText(event) {
 }
 
 function hlSQL(sql) {
+  // Lightweight client-side SQL highlighting. This is cosmetic only; it never
+  // changes the stored SQL copied by renderCode().
   const keywords = [
     'SELECT', 'FROM', 'WHERE', 'GROUP BY', 'ORDER BY', 'PARTITION BY', 'LIMIT',
     'LEFT JOIN', 'INNER JOIN', 'JOIN', 'ON', 'AS', 'AND', 'OR', 'NOT',

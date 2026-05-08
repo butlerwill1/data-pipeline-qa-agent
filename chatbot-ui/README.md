@@ -25,6 +25,51 @@ The UI is also served by the same FastAPI app, so you can run one local server f
 - `renderers.js`: HTML renderers for reports, findings, questions, and query samples
 - `chat.js`: browser state, polling, run submission, and answer flow
 
+## How the frontend fits together
+
+The UI does not use a bundler or framework. `index.html` loads the CSS and then
+loads three JavaScript files in dependency order:
+
+1. `renderers.js` defines escaping helpers and HTML renderers.
+2. `api.js` defines fetch wrappers for the FastAPI routes.
+3. `chat.js` wires DOM events, owns browser state, calls the API helpers, and
+   inserts renderer output into the page.
+
+The backend is always treated as the source of truth. The browser stores only
+temporary view state such as the active run ID, polling timer IDs, and sets used
+to avoid rendering duplicate question or artifact cards.
+
+## Runtime rendering flow
+
+When an operator submits the run form, `chat.js` builds a payload and calls
+`createRun()` from `api.js`. The returned snapshot is passed to `syncSnapshot()`,
+which updates the status badge, sidebar summary, pending question forms, and any
+available final artifacts.
+
+While a run is active, `pollCurrentRun()` repeatedly calls `getRun()`. Each
+response goes through the same `syncSnapshot()` path, so active runs and
+historical run replay use the same rendering logic.
+
+Final reports are stored as Markdown by the backend. `renderMarkdownDocument()`
+wraps the report in a `.doc-card`, and `markdownToHtml()` uses `marked` to turn
+the Markdown into HTML. The visual treatment then comes from `.doc-card` and
+`.markdown-body` in `style.css`.
+
+## Layout notes
+
+The app is a fixed-height console. The `body` and `.shell` do not scroll as one
+large document; instead, the left `.setup-column` and right `.workspace-column`
+scroll independently. This keeps the top header visible and lets the report
+workspace move separately from the setup/history panels.
+
+The main report surface is `.chat`. It is hidden until a run or history item is
+shown. Dynamic messages are appended into `#messages`, and each message body is
+limited to a readable width with `.msg-body`.
+
+If the report background appears to stop while report content continues, inspect
+the `.chat` rules in `style.css`. That container controls the large workspace
+panel behind the generated report cards.
+
 ## Run locally
 
 Use the repo virtual environment, then start the FastAPI server:

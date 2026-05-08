@@ -1,15 +1,29 @@
 /* Summary: UI state and polling flow for the local phase 1 QA operator console. */
 
+/*
+ * chat.js is the browser-side coordinator. It owns transient UI state, reads
+ * form values, calls api.js, and passes snapshot data to renderers.js. The
+ * backend remains the source of truth for run status and artifacts.
+ */
+
 const appState = {
+  // Active or replayed run ID. Null means the workspace is on the welcome state.
   currentRunId: null,
+  // setInterval handle for polling an active run.
   pollTimer: null,
+  // Prevents duplicate status cards when the same status/node pair is polled.
   lastStatusKey: null,
+  // Tracks rendered pending-question groups by question IDs.
   renderedQuestionKeys: new Set(),
+  // Tracks runs whose final report/findings/query pack have already been shown.
   renderedArtifactsForRun: new Set(),
+  // Separate interval for the recent-runs sidebar.
   runsListTimer: null,
 };
 
 const NODE_LABELS = {
+  // Backend graph node names are implementation-oriented; these labels are
+  // operator-facing and reused in status cards and summary fields.
   ask_business_context: 'Waiting for operator context',
   extract_pipeline_logic: 'Extracting pipeline logic',
   generate_qa_checks: 'Generating QA checks',
@@ -26,6 +40,7 @@ const NODE_LABELS = {
 };
 
 const STATUS_COPY = {
+  // Normalised display labels for run lifecycle states.
   awaiting_user: 'Awaiting user',
   complete: 'Complete',
   failed: 'Failed',
@@ -38,6 +53,11 @@ const STATUS_COPY = {
 const refs = {};
 
 function init() {
+  /*
+   * Cache DOM references once at startup. This avoids repeated lookups during
+   * polling and keeps the rest of the file explicit about which elements it
+   * mutates.
+   */
   refs.runForm = document.getElementById('run-form');
   refs.newRunButton = document.getElementById('new-run-btn');
   refs.startRunButton = document.getElementById('start-run-btn');
@@ -72,6 +92,8 @@ function init() {
   window.loadHistoricalRun = loadHistoricalRun;
   window.fillAllAndSubmit = fillAllAndSubmit;
 
+  // The history panel is useful even before a new run is submitted, so it starts
+  // polling independently from the active-run poller.
   refreshRunsList();
   appState.runsListTimer = window.setInterval(refreshRunsList, 5000);
 
@@ -87,6 +109,8 @@ function init() {
 }
 
 function parseTableList(rawValue) {
+  // Accept comma-separated, semicolon-separated, or whitespace-separated table
+  // lists so operators can paste values from several common sources.
   return rawValue
     .split(/[\s,;]+/)
     .map((item) => item.trim())
@@ -94,16 +118,23 @@ function parseTableList(rawValue) {
 }
 
 function showChat() {
+  // Swap the empty welcome panel for the live conversation area.
   refs.welcome.style.display = 'none';
   refs.chat.style.display = 'block';
 }
 
 function scrollToBottom() {
+  // The workspace column owns scrolling; chat is kept visible so long cards can
+  // expand without introducing nested scroll traps.
   refs.chat.scrollTop = refs.chat.scrollHeight;
   refs.workspaceColumn.scrollTop = refs.workspaceColumn.scrollHeight;
 }
 
 function resetWorkspace() {
+  /*
+   * Clears only browser state. Saved Mongo records and historical runs remain
+   * available through the sidebar.
+   */
   window.clearInterval(appState.pollTimer);
   appState.pollTimer = null;
   appState.currentRunId = null;
@@ -123,20 +154,27 @@ function resetWorkspace() {
 }
 
 function setFormBusy(isBusy) {
+  // Prevent duplicate submissions while the backend is creating a run.
   refs.startRunButton.disabled = isBusy;
 }
 
 function setStatus(status) {
+  // Updates both visible text and data-state so CSS can recolour the status dot.
   const normalized = status || 'idle';
   refs.statusBadge.dataset.state = normalized;
   refs.statusText.textContent = STATUS_COPY[normalized] || normalized.replace(/_/g, ' ');
 }
 
 function friendlyNode(node) {
+  // Fall back to a readable version of unknown node names instead of hiding them.
   return NODE_LABELS[node] || (node ? node.replace(/_/g, ' ') : 'None');
 }
 
 function updateSummary(snapshot) {
+  /*
+   * The left sidebar mirrors the latest snapshot. It is called for active polls,
+   * historical runs, answers, stop requests, and resets.
+   */
   if (!snapshot) {
     refs.summaryStatus.textContent = 'Idle';
     refs.summaryNode.textContent = 'None';
@@ -168,6 +206,8 @@ function updateSummary(snapshot) {
   const severity = summary.severity_summary || { pass: 0, warn: 0, fail: 0 };
   const documents = snapshot.documents || [];
   if (documents.length) {
+    // The artifact panel shows the first generated document and aggregate
+    // severities. Full document content is rendered in the chat stream.
     const report = documents[0];
     refs.artifactSummary.className = 'artifact-summary';
     refs.artifactSummary.innerHTML = `
@@ -185,6 +225,8 @@ function updateSummary(snapshot) {
 }
 
 function addMessage(innerHtml, role = 'bot') {
+  // Appends a single chat message shell. innerHtml is expected to come from a
+  // renderer helper or from already-escaped local strings.
   const wrapper = document.createElement('div');
   wrapper.className = `msg ${role}`;
   wrapper.innerHTML = `
@@ -196,11 +238,14 @@ function addMessage(innerHtml, role = 'bot') {
 }
 
 function addBotMessage(innerHtml) {
+  // Bot messages are the primary way status cards, reports, and evidence packs
+  // enter the workspace.
   showChat();
   addMessage(innerHtml, 'bot');
 }
 
 function addUserMessage(text, chips = []) {
+  // Operator actions are reflected as compact right-aligned bubbles.
   const chipHtml = chips.length
     ? `<div class="run-chip-list">${chips.map((chip) => `<span class="run-chip">${esc(chip)}</span>`).join('')}</div>`
     : '';
@@ -216,6 +261,10 @@ function addUserMessage(text, chips = []) {
 }
 
 function announceStatus(snapshot) {
+  /*
+   * Render a status card only when the run status or current graph node changes.
+   * Polling can return the same snapshot many times while a node is working.
+   */
   const run = snapshot.run || {};
   const statusKey = `${run.status || 'unknown'}:${run.current_node || 'none'}`;
   if (appState.lastStatusKey === statusKey) {
@@ -247,6 +296,10 @@ function announceStatus(snapshot) {
 }
 
 function syncQuestions(snapshot) {
+  /*
+   * When the backend pauses with awaiting_user, render unanswered questions once.
+   * The question IDs form a stable key so repeat polls do not duplicate the form.
+   */
   if (snapshot.run?.status !== 'awaiting_user') {
     return;
   }
@@ -274,6 +327,11 @@ function syncQuestions(snapshot) {
 }
 
 function syncArtifacts(snapshot) {
+  /*
+   * Final artifacts are shown once per run. A completed snapshot can be seen by
+   * the active poller and again through history replay, so this guard prevents
+   * duplicate report, findings, and query cards in the same workspace view.
+   */
   const runId = snapshot.run?.run_id;
   if (!runId || !snapshot.report || appState.renderedArtifactsForRun.has(runId)) {
     return;
@@ -299,6 +357,11 @@ function syncArtifacts(snapshot) {
 }
 
 function syncSnapshot(snapshot) {
+  /*
+   * Central reconciliation point. Every backend response that contains a full
+   * snapshot flows through here so status, sidebar summary, questions, and
+   * artifacts stay in sync.
+   */
   setStatus(snapshot.run?.status || 'idle');
   updateSummary(snapshot);
   announceStatus(snapshot);
@@ -321,6 +384,8 @@ function syncSnapshot(snapshot) {
 }
 
 async function pollCurrentRun() {
+  // Poll only when a run is selected. Failures stop the active poller and render
+  // an error card instead of silently leaving stale state on screen.
   if (!appState.currentRunId) return;
 
   try {
@@ -341,11 +406,20 @@ async function pollCurrentRun() {
 }
 
 function startPolling() {
+  // Restarting clears any older interval so answer submission, history loading,
+  // or run creation never leaves multiple active pollers.
   window.clearInterval(appState.pollTimer);
   appState.pollTimer = window.setInterval(pollCurrentRun, API.pollIntervalMs);
 }
 
 async function handleRunSubmit(event) {
+  /*
+   * Form submission path:
+   * 1. Build the create-run payload from form fields.
+   * 2. Reset the local workspace.
+   * 3. POST to the backend.
+   * 4. Render the returned snapshot and begin polling.
+   */
   event.preventDefault();
 
   const payload = {
@@ -394,6 +468,10 @@ async function handleRunSubmit(event) {
 }
 
 async function submitPendingAnswers(event) {
+  /*
+   * Reads all question textareas generated by renderQuestionForm(). The backend
+   * receives exact question IDs with operator-provided answer text.
+   */
   event.preventDefault();
   const form = event.target;
   const runId = form.getAttribute('data-run-id');
@@ -438,6 +516,8 @@ async function submitPendingAnswers(event) {
 }
 
 async function handleStopRun() {
+  // Stop is cooperative. The backend marks the run as stopping/stopped and the
+  // poller keeps watching if more state changes are expected.
   if (!appState.currentRunId) return;
 
   refs.stopRunButton.disabled = true;
@@ -462,6 +542,10 @@ async function handleStopRun() {
 }
 
 function fillAllAndSubmit(event) {
+  /*
+   * Convenience path for local testing and repeatable demos. It copies the
+   * default answer into every generated question textarea, then submits the form.
+   */
   const form = event.target.closest('form.question-form');
   if (!form) return;
   const defaultText = (form.querySelector('.question-default-text')?.value || '').trim();
@@ -482,6 +566,8 @@ function fillAllAndSubmit(event) {
 }
 
 async function refreshRunsList() {
+  // Runs independently of the active run poller so completed work appears in
+  // history even after the main run loop stops.
   if (!refs.runsList) return;
   try {
     const payload = await listRuns(20);
@@ -493,6 +579,8 @@ async function refreshRunsList() {
 }
 
 function renderRunsList(runs) {
+  // The recent-runs sidebar is rebuilt from scratch on each refresh because it
+  // is small and avoids manual diffing of active/history state.
   if (!runs.length) {
     refs.runsList.innerHTML = '<div class="runs-empty">No runs yet.</div>';
     return;
@@ -532,6 +620,11 @@ function renderRunsList(runs) {
 }
 
 async function loadHistoricalRun(runId) {
+  /*
+   * History replay clears the chat stream, loads one saved snapshot, and renders
+   * it through the same sync path as an active run. If the selected run is still
+   * active, polling resumes from that point.
+   */
   if (!runId) return;
   if (appState.currentRunId === runId && appState.pollTimer) return;
 

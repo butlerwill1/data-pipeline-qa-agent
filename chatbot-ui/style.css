@@ -1,10 +1,24 @@
 /* Summary: Visual system for the local phase 1 QA operator console. */
 
+/*
+ * This stylesheet owns both visual theme and layout mechanics for the static UI.
+ * The page is intentionally split into:
+ * - a fixed-height application viewport,
+ * - a scrollable setup/history sidebar,
+ * - a scrollable workspace column,
+ * - cards rendered dynamically by chat.js and renderers.js.
+ */
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
 
 :root {
+  /*
+   * Theme tokens. Most colours below are referenced through these custom
+   * properties so cards, badges, tables, and markdown output remain visually
+   * consistent.
+   */
   --bg: #f4ede1;
   --bg-strong: #fffaf2;
   --bg-soft: rgba(255, 250, 242, 0.8);
@@ -24,11 +38,16 @@
 }
 
 html, body {
+  /* Give the app a stable viewport-sized root for the two-column console. */
   margin: 0;
   height: 100%;
 }
 
 body {
+  /*
+   * The body itself does not scroll. The sidebar and workspace column scroll
+   * independently inside the app shell, which keeps the header fixed in place.
+   */
   font-family: 'IBM Plex Sans', sans-serif;
   background:
     radial-gradient(circle at top left, rgba(239, 181, 129, 0.22), transparent 34%),
@@ -43,6 +62,7 @@ body {
 }
 
 .page-glow {
+  /* Decorative background layers sit behind all interactive content. */
   position: fixed;
   width: 420px;
   height: 420px;
@@ -66,6 +86,7 @@ body {
 }
 
 .topbar {
+  /* Header remains above the shell content and exposes global run actions. */
   position: relative;
   z-index: 1;
   display: flex;
@@ -84,6 +105,7 @@ body {
 }
 
 .brand-mark {
+  /* Compact product mark used in the header only. */
   width: 52px;
   height: 52px;
   border-radius: 16px;
@@ -186,6 +208,7 @@ body {
 .primary-btn,
 .secondary-btn,
 .ghost-btn {
+  /* Shared button reset and interaction timing. Individual variants follow. */
   border: 0;
   border-radius: 999px;
   cursor: pointer;
@@ -231,6 +254,11 @@ body {
 }
 
 .shell {
+  /*
+   * Main application grid. The first column is the setup/history sidebar; the
+   * second column is the chat/report workspace. minmax(0, 1fr) prevents long
+   * report content from forcing the grid wider than the viewport.
+   */
   position: relative;
   z-index: 1;
   flex: 1;
@@ -245,10 +273,12 @@ body {
 
 .setup-column,
 .workspace-column {
+  /* Allow child scroll containers to shrink within the fixed-height shell. */
   min-height: 0;
 }
 
 .setup-column {
+  /* Sidebar scrolls separately from the report workspace. */
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -259,6 +289,7 @@ body {
 .panel,
 .welcome-card,
 .chat {
+  /* Shared glass-panel treatment for sidebar panels and the main workspace. */
   background: var(--bg-soft);
   border: 1px solid rgba(117, 94, 71, 0.14);
   border-radius: var(--radius-xl);
@@ -299,12 +330,14 @@ body {
 }
 
 .stack-form {
+  /* Vertical form rhythm for run setup fields. */
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
 .field {
+  /* Label and input grouping used by every setup form control. */
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -319,6 +352,7 @@ body {
 .field input,
 .field textarea,
 .question-answer {
+  /* Text inputs share the same soft field treatment as generated questions. */
   width: 100%;
   border: 1px solid rgba(117, 94, 71, 0.18);
   border-radius: 16px;
@@ -339,6 +373,7 @@ body {
 }
 
 .summary-grid {
+  /* Compact definition-list layout for the current run state panel. */
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px 18px;
@@ -367,6 +402,7 @@ body {
 }
 
 .metric-strip {
+  /* Three small counters summarise pending questions, executed queries, and findings. */
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
@@ -385,6 +421,7 @@ body {
 }
 
 .artifact-summary {
+  /* Populated by chat.js once generated report documents exist. */
   display: grid;
   gap: 10px;
 }
@@ -414,6 +451,11 @@ body {
 }
 
 .workspace-column {
+  /*
+   * The workspace column is the main vertical scroll container for report
+   * content. This is why chat cards can grow beyond the first viewport while
+   * the header and sidebar remain stable.
+   */
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -423,6 +465,7 @@ body {
 }
 
 .welcome {
+  /* Empty-state panel shown before a run or history item is selected. */
   flex: 1;
   display: flex;
   min-height: 0;
@@ -460,6 +503,11 @@ body {
 }
 
 .chat {
+  /*
+   * Main conversation/report surface. Its background is the large white panel
+   * behind dynamic cards. height: 100% fixes it to the available workspace
+   * height; overflow: visible lets long report content extend past that panel.
+   */
   display: none;
   flex: 1;
   min-height: 0;
@@ -468,6 +516,7 @@ body {
 }
 
 .messages {
+  /* Dynamic message stack. chat.js appends .msg elements here. */
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -488,6 +537,7 @@ body {
 }
 
 .msg {
+  /* One chat row containing an avatar and the rendered message body. */
   display: flex;
   gap: 14px;
   align-items: flex-start;
@@ -510,6 +560,7 @@ body {
 }
 
 .avatar {
+  /* Fixed-size sender marker so message alignment does not shift per card. */
   width: 42px;
   height: 42px;
   border-radius: 14px;
@@ -532,6 +583,10 @@ body {
 }
 
 .msg-body {
+  /*
+   * Limit message width for readable report text while allowing full-width use
+   * on narrower screens.
+   */
   width: min(100%, 860px);
   display: flex;
   flex-direction: column;
@@ -560,6 +615,11 @@ body {
 .message-card,
 .doc-card,
 .query-card {
+  /*
+   * Card surfaces generated by renderers.js. .doc-card is the final Markdown
+   * report wrapper; .query-card is each executed SQL check; .message-card is
+   * the generic status/question/finding wrapper.
+   */
   background: rgba(255, 251, 245, 0.94);
   padding: 18px;
 }
@@ -581,6 +641,7 @@ body {
 }
 
 .message-body {
+  /* Body content inside generic cards uses grid gaps for predictable spacing. */
   display: grid;
   gap: 12px;
   margin-top: 12px;
@@ -588,6 +649,7 @@ body {
 
 .run-chip-list,
 .query-meta {
+  /* Chips wrap instead of overflowing when paths or table names are long. */
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -642,11 +704,13 @@ body {
 }
 
 .question-form {
+  /* Generated when the agent pauses for operator context. */
   display: grid;
   gap: 16px;
 }
 
 .question-block {
+  /* One backend question, including context, optional table, and answer field. */
   display: grid;
   gap: 10px;
   padding: 16px;
@@ -676,6 +740,7 @@ body {
 
 .finding-grid,
 .query-stack {
+  /* Findings can flow into columns; query cards remain a vertical evidence stack. */
   display: grid;
   gap: 18px;
 }
@@ -685,6 +750,10 @@ body {
 }
 
 .finding-card {
+  /*
+   * Finding text can contain long table names or LLM-generated phrases, so the
+   * card aggressively wraps content instead of allowing horizontal overflow.
+   */
   display: grid;
   gap: 12px;
   padding: 18px;
@@ -725,6 +794,7 @@ body {
 .query-head,
 .doc-head,
 .code-head {
+  /* Header rows shared by several card types. */
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -743,11 +813,13 @@ body {
 }
 
 .query-card {
+  /* Each executed QA check is self-contained: title, status, SQL, and result sample. */
   display: grid;
   gap: 14px;
 }
 
 .code-card {
+  /* Dark code panel for generated SQL inside query cards. */
   border-radius: 18px;
   overflow: hidden;
   border: 1px solid rgba(47, 37, 31, 0.1);
@@ -782,6 +854,7 @@ body {
 .sql-number { color: #ffdf97; }
 
 .table-wrap {
+  /* Horizontal scrolling is isolated to result tables, not the whole page. */
   overflow-x: auto;
   border: 1px solid rgba(117, 94, 71, 0.14);
   border-radius: 18px;
@@ -789,6 +862,7 @@ body {
 }
 
 .data-table {
+  /* Keep sample tables readable even when there are many columns. */
   width: 100%;
   border-collapse: collapse;
   min-width: 520px;
@@ -828,10 +902,12 @@ body {
 }
 
 .doc-head {
+  /* Report title row above the rendered Markdown document. */
   margin-bottom: 12px;
 }
 
 .doc-body {
+  /* The Markdown renderer outputs normal block elements; grid gap gives them rhythm. */
   display: grid;
   gap: 12px;
 }
@@ -861,6 +937,10 @@ code.inline {
 }
 
 @media (max-width: 1120px) {
+  /*
+   * Tablet and narrow desktop layout: collapse the sidebar and workspace into a
+   * single column and let the shell scroll vertically.
+   */
   .shell {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto;
@@ -878,6 +958,7 @@ code.inline {
 }
 
 @media (max-width: 760px) {
+  /* Phone layout: reduce padding and stack header controls. */
   .topbar,
   .shell {
     padding-left: 16px;
@@ -917,6 +998,7 @@ code.inline {
 
 /* Recent runs panel */
 .runs-list {
+  /* History is scrollable inside its sidebar panel to keep the panel compact. */
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -942,6 +1024,7 @@ code.inline {
 }
 
 .run-item {
+  /* Each history item is a button so selecting a run is keyboard-accessible. */
   appearance: none;
   background: var(--bg-strong);
   border: 1px solid var(--line);
@@ -1009,6 +1092,7 @@ code.inline {
 }
 
 .run-sev {
+  /* Tiny pass/warn/fail counters shown on historical runs after reports exist. */
   display: inline-flex;
   gap: 4px;
   font-size: 10px;
@@ -1027,6 +1111,10 @@ code.inline {
 
 /* Auto-answer block on the question form */
 .question-default {
+  /*
+   * Local testing helper used by fillAllAndSubmit(). It is intentionally styled
+   * as a utility section inside the generated operator-question form.
+   */
   background: var(--bg-strong);
   border: 1px dashed var(--accent);
   border-radius: var(--radius-md);
@@ -1044,6 +1132,7 @@ code.inline {
 }
 
 .question-default-text {
+  /* Default answer copied into each generated question textarea. */
   width: 100%;
   resize: vertical;
   border: 1px solid var(--line);
@@ -1056,6 +1145,7 @@ code.inline {
 }
 
 .question-actions {
+  /* Keep generated-question controls aligned while allowing wrapping on mobile. */
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -1069,6 +1159,10 @@ code.inline {
 
 /* GitHub markdown body — tighten the defaults that bleed into the cream theme */
 .markdown-body {
+  /*
+   * github-markdown-css is loaded from the page, but its defaults assume a
+   * white GitHub page. These overrides make final reports fit the app theme.
+   */
   background: transparent !important;
   color: var(--ink) !important;
   font-family: 'IBM Plex Sans', sans-serif !important;

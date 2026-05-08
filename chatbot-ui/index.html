@@ -1,20 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Static shell for the local FastAPI-served QA operator UI. -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pipeline QA Agent</title>
+  <!-- Fonts are loaded here because the UI is static and does not use a build step. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <!-- GitHub Markdown CSS styles final report content generated from Markdown. -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/sindresorhus/github-markdown-css@main/github-markdown-light.css">
+  <!-- marked converts persisted Markdown reports into HTML in renderers.js. -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Non-interactive background treatment. All app content sits above these layers. -->
   <div class="page-glow page-glow-a"></div>
   <div class="page-glow page-glow-b"></div>
 
+  <!-- Global app header: brand, run status, and coarse workspace controls. -->
   <header class="topbar">
     <div class="brand">
       <div class="brand-mark">QA</div>
@@ -34,8 +40,11 @@
     </div>
   </header>
 
+  <!-- Main two-column console. CSS collapses this grid on smaller screens. -->
   <main class="shell">
+    <!-- Left column: run setup, current summary, artifacts, and historical runs. -->
     <aside class="setup-column">
+      <!-- Run submission form. chat.js reads these fields in handleRunSubmit(). -->
       <section class="panel">
         <div class="panel-head">
           <p class="section-kicker">Phase 1</p>
@@ -92,6 +101,7 @@
         </form>
       </section>
 
+      <!-- Snapshot summary panel. chat.js refreshes all values via updateSummary(). -->
       <section class="panel">
         <div class="panel-head">
           <p class="section-kicker">Run summary</p>
@@ -136,6 +146,7 @@
         <div class="summary-footer" id="summary-updated">No run activity yet.</div>
       </section>
 
+      <!-- Report artifact summary. Populated after the backend creates documents. -->
       <section class="panel">
         <div class="panel-head">
           <p class="section-kicker">Artifacts</p>
@@ -148,6 +159,7 @@
         </div>
       </section>
 
+      <!-- Historical run selector. chat.js refreshes this list every few seconds. -->
       <section class="panel">
         <div class="panel-head">
           <p class="section-kicker">History</p>
@@ -161,7 +173,9 @@
       </section>
     </aside>
 
+    <!-- Right column: empty welcome state first, then dynamic chat/report cards. -->
     <section class="workspace-column" id="workspace-column">
+      <!-- Shown before an active or historical run is selected. -->
       <div id="welcome" class="welcome">
         <div class="welcome-card">
           <p class="section-kicker">Workflow</p>
@@ -180,12 +194,14 @@
         </div>
       </div>
 
+      <!-- Hidden on load. chat.js appends .msg nodes into #messages. -->
       <div id="chat" class="chat">
         <div id="messages" class="messages"></div>
       </div>
     </section>
   </main>
 
+  <!-- Script order matters: renderers and API helpers are globals used by chat.js. -->
   <script src="renderers.js"></script>
   <script src="api.js"></script>
   <script src="chat.js"></script>
