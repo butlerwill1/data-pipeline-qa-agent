@@ -19,6 +19,8 @@ const appState = {
   renderedArtifactsForRun: new Set(),
   // Separate interval for the recent-runs sidebar.
   runsListTimer: null,
+  // Read-only mode still loads history, but disables run mutations.
+  isReadOnly: false,
 };
 
 const NODE_LABELS = {
@@ -97,15 +99,32 @@ function init() {
   refreshRunsList();
   appState.runsListTimer = window.setInterval(refreshRunsList, 5000);
 
-  getHealth().catch(() => {
-    addBotMessage(
-      renderInfoCard(
-        'Backend health check failed',
-        '<p>The UI loaded, but the API health check did not respond. Start the FastAPI server before running QA jobs.</p>',
-        { kicker: 'Startup', tone: 'error' }
-      )
-    );
-  });
+  getHealth()
+    .then(applyHealth)
+    .catch(() => {
+      addBotMessage(
+        renderInfoCard(
+          'Backend health check failed',
+          '<p>The UI loaded, but the API health check did not respond. Start the FastAPI server before running QA jobs.</p>',
+          { kicker: 'Startup', tone: 'error' }
+        )
+      );
+    });
+}
+
+function applyHealth(health) {
+  appState.isReadOnly = Boolean(health && health.read_only);
+  setReadOnlyMode(appState.isReadOnly);
+}
+
+function setReadOnlyMode(isReadOnly) {
+  refs.pipelinePath.disabled = isReadOnly;
+  refs.sourceTables.disabled = isReadOnly;
+  refs.destinationTables.disabled = isReadOnly;
+  refs.businessContext.disabled = isReadOnly;
+  refs.startRunButton.disabled = isReadOnly;
+  refs.startRunButton.textContent = isReadOnly ? 'Read-only preview' : 'Start QA run';
+  refs.stopRunButton.disabled = true;
 }
 
 function parseTableList(rawValue) {
@@ -150,12 +169,13 @@ function resetWorkspace() {
   updateSummary(null);
   refs.artifactSummary.className = 'artifact-summary empty';
   refs.artifactSummary.textContent = 'No report yet.';
+  setReadOnlyMode(appState.isReadOnly);
   refreshRunsList();
 }
 
 function setFormBusy(isBusy) {
   // Prevent duplicate submissions while the backend is creating a run.
-  refs.startRunButton.disabled = isBusy;
+  refs.startRunButton.disabled = isBusy || appState.isReadOnly;
 }
 
 function setStatus(status) {
@@ -352,7 +372,7 @@ function syncArtifacts(snapshot) {
   }
 
   if (snapshot.executed_queries?.length) {
-    addBotMessage(renderQueryResults(snapshot.executed_queries));
+    addBotMessage(renderQueryResults(snapshot.executed_queries, snapshot.findings || []));
   }
 }
 
@@ -421,6 +441,17 @@ async function handleRunSubmit(event) {
    * 4. Render the returned snapshot and begin polling.
    */
   event.preventDefault();
+
+  if (appState.isReadOnly) {
+    addBotMessage(
+      renderInfoCard(
+        'Read-only preview',
+        '<p>This UI is connected in read-only mode. You can review previous runs, reports, findings, and executed queries, but you cannot start a new QA run here.</p>',
+        { kicker: 'Preview', tone: 'warn' }
+      )
+    );
+    return;
+  }
 
   const payload = {
     pipeline_path: refs.pipelinePath.value.trim(),

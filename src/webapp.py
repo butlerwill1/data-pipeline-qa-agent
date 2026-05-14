@@ -1,6 +1,7 @@
 """FastAPI application exposing health, run, answer, and report endpoints."""
 
 from contextlib import asynccontextmanager
+import os
 from pathlib import Path
 
 import uvicorn
@@ -8,6 +9,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.requests import Request
 from pydantic import BaseModel, Field
 
 from .agent.mongo import ensure_indexes
@@ -20,6 +22,25 @@ from .agent.run_service import (
 )
 
 UI_DIR = Path(__file__).resolve().parents[1] / "chatbot-ui"
+
+
+def _is_read_only() -> bool:
+    """Return whether the web app should expose a read-only viewer mode."""
+    return os.getenv("QA_AGENT_WEB_READ_ONLY", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _require_writable_mode() -> None:
+    """Reject mutating requests when the UI is running in viewer mode."""
+    if _is_read_only():
+        raise HTTPException(
+            status_code=503,
+            detail="This UI is running in read-only mode. Historical runs are available, but new runs and mutations are disabled.",
+        )
 
 
 class RunCreateRequest(BaseModel):
@@ -72,12 +93,30 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def disable_local_ui_caching(request: Request, call_next):
+    """Disable browser caching for the local static UI during development.
+
+    The UI is served from plain JS/CSS files without a build step or hashed
+    filenames. Preventing caching avoids stale frontend assets after local
+    edits and server restarts.
+    """
+    response = await call_next(request)
+    path = request.url.path
+    if path == "/" or path.endswith((".html", ".js", ".css")):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+
 @app.get("/api/health")
 def health() -> dict:
     """Return a lightweight health response for the API and bundled UI."""
     return {
         "status": "ok",
         "ui_available": UI_DIR.is_dir(),
+        "read_only": _is_read_only(),
     }
 
 
@@ -91,6 +130,7 @@ def runs(limit: int = 20) -> dict:
 @app.post("/api/runs")
 def create_run_route(body: RunCreateRequest) -> dict:
     """Create a new run and return its initial snapshot."""
+    _require_writable_mode()
     try:
         run_id = create_run(
             pipeline_path=body.pipeline_path,
@@ -118,6 +158,7 @@ def run_snapshot(run_id: str) -> dict:
 @app.post("/api/runs/{run_id}/answers")
 def answer_run_questions(run_id: str, body: RunAnswersRequest) -> dict:
     """Store answers for a paused run and enqueue graph resumption."""
+    _require_writable_mode()
     try:
         submit_answers(
             run_id=run_id,
@@ -135,6 +176,7 @@ def answer_run_questions(run_id: str, body: RunAnswersRequest) -> dict:
 @app.post("/api/runs/{run_id}/stop")
 def stop_run(run_id: str) -> dict:
     """Request that a running or paused QA run stop."""
+    _require_writable_mode()
     try:
         return request_stop(run_id)
     except LookupError as exc:

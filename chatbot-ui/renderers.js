@@ -65,6 +65,17 @@ function statusClass(status) {
   return String(status || 'unknown').replace(/[^a-z0-9_-]/gi, '-').toLowerCase();
 }
 
+function executionStatusLabel(status) {
+  // Executed-query cards show SQL execution state, not QA pass/fail.
+  const labels = {
+    failed: 'Failed',
+    ok: 'OK',
+    rejected: 'Rejected',
+    timeout: 'Timed out',
+  };
+  return labels[status] || String(status || 'unknown').replace(/_/g, ' ');
+}
+
 function inlineFormat(text) {
   // Minimal inline markdown used for short controlled strings. Full report
   // markdown is handled by markdownToHtml().
@@ -241,12 +252,21 @@ function renderCode(title, sql) {
   `;
 }
 
-function renderQueryResults(queries) {
+function renderQueryResults(queries, findings = []) {
   /*
    * Executed checks combine metadata, generated SQL, optional errors, and sample
    * rows. This renderer keeps each check self-contained so long reports remain
    * scannable.
    */
+  const findingsByRelatedCheck = new Map();
+  findings.forEach((finding) => {
+    const key = finding && finding.related_check;
+    if (!key) return;
+    const relatedFindings = findingsByRelatedCheck.get(key) || [];
+    relatedFindings.push(finding);
+    findingsByRelatedCheck.set(key, relatedFindings);
+  });
+
   const cards = queries
     .map((query) => {
       const meta = [
@@ -254,6 +274,10 @@ function renderQueryResults(queries) {
         query.target_table ? `Table: ${query.target_table}` : null,
         query.runtime_ms != null ? `Runtime: ${formatRuntime(query.runtime_ms)}` : null,
       ].filter(Boolean);
+      const relatedFindings = findingsByRelatedCheck.get(query.query_id) || [];
+      const supportLine = relatedFindings.length
+        ? `<div class="query-support">Supports finding: ${relatedFindings.map((finding) => esc(finding.title || 'Untitled finding')).join('; ')}</div>`
+        : '';
 
       let body = '';
       if (query.error) {
@@ -271,8 +295,9 @@ function renderQueryResults(queries) {
             <div>
               <div class="query-title">${esc(query.check_name || 'Unnamed check')}</div>
               <div class="query-purpose">${esc(query.purpose || 'No purpose recorded.')}</div>
+              ${supportLine}
             </div>
-            <span class="status-pill status-${statusClass(query.status)}">${esc(statusLabel(query.status))}</span>
+            <span class="status-pill status-${statusClass(query.status)}">Execution: ${esc(executionStatusLabel(query.status))}</span>
           </div>
           ${
             meta.length

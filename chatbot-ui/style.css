@@ -19,18 +19,18 @@
    * properties so cards, badges, tables, and markdown output remain visually
    * consistent.
    */
-  --bg: #f4ede1;
-  --bg-strong: #fffaf2;
-  --bg-soft: rgba(255, 250, 242, 0.8);
-  --ink: #1f1a16;
-  --muted: #6d5f52;
-  --line: #d9ccb9;
-  --accent: #bf5a2b;
-  --accent-strong: #99441e;
-  --accent-soft: #f7dccd;
-  --panel-shadow: 0 30px 70px rgba(76, 49, 28, 0.12);
-  --success: #136f63;
-  --warn: #a56716;
+  --bg: #f5f9ff;
+  --bg-strong: #ffffff;
+  --bg-soft: rgba(255, 255, 255, 0.96);
+  --ink: #162033;
+  --muted: #5b6b84;
+  --line: #d9e4f2;
+  --accent: #2f6fed;
+  --accent-strong: #1f57c3;
+  --accent-soft: #deebff;
+  --panel-shadow: 0 18px 36px rgba(44, 94, 170, 0.10);
+  --success: #0f766e;
+  --warn: #b7791f;
   --fail: #b42318;
   --radius-xl: 28px;
   --radius-lg: 20px;
@@ -49,10 +49,7 @@ body {
    * independently inside the app shell, which keeps the header fixed in place.
    */
   font-family: 'IBM Plex Sans', sans-serif;
-  background:
-    radial-gradient(circle at top left, rgba(239, 181, 129, 0.22), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(191, 90, 43, 0.16), transparent 30%),
-    linear-gradient(180deg, #f7f0e6 0%, #f3ecdf 100%);
+  background: #f5f9ff;
   color: var(--ink);
   display: flex;
   flex-direction: column;
@@ -63,12 +60,8 @@ body {
 
 .page-glow {
   /* Decorative background layers sit behind all interactive content. */
+  display: none;
   position: fixed;
-  width: 420px;
-  height: 420px;
-  border-radius: 999px;
-  filter: blur(80px);
-  opacity: 0.32;
   pointer-events: none;
   z-index: 0;
 }
@@ -76,13 +69,13 @@ body {
 .page-glow-a {
   top: -140px;
   left: -90px;
-  background: rgba(243, 163, 124, 0.65);
+  background: rgba(47, 111, 237, 0.10);
 }
 
 .page-glow-b {
   right: -120px;
   bottom: -180px;
-  background: rgba(191, 90, 43, 0.45);
+  background: rgba(47, 111, 237, 0.08);
 }
 
 .topbar {
@@ -94,8 +87,8 @@ body {
   justify-content: space-between;
   gap: 24px;
   padding: 22px 26px 18px;
-  border-bottom: 1px solid rgba(117, 94, 71, 0.12);
-  backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .brand {
@@ -111,12 +104,12 @@ body {
   border-radius: 16px;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, #d47445 0%, #a4431a 100%);
-  color: #fff7f2;
+  background: var(--accent);
+  color: #ffffff;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
   letter-spacing: 0.06em;
-  box-shadow: 0 18px 30px rgba(163, 67, 28, 0.22);
+  box-shadow: 0 12px 24px rgba(47, 111, 237, 0.20);
 }
 
 .eyebrow,
@@ -158,8 +151,8 @@ body {
   gap: 8px;
   padding: 10px 16px;
   border-radius: 999px;
-  border: 1px solid rgba(117, 94, 71, 0.16);
-  background: rgba(255, 250, 242, 0.78);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.96);
   color: var(--muted);
   font-size: 13px;
   font-weight: 600;
@@ -169,8 +162,8 @@ body {
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  background: #8c8177;
-  box-shadow: 0 0 0 0 rgba(140, 129, 119, 0.45);
+  background: #8aa2c2;
+  box-shadow: 0 0 0 0 rgba(138, 162, 194, 0.40);
   animation: status-pulse 1.8s infinite;
 }
 
@@ -218,10 +211,10 @@ body {
 
 .primary-btn {
   padding: 13px 18px;
-  background: linear-gradient(135deg, #cb6a3c 0%, #b44f1f 100%);
-  color: #fff7f2;
+  background: var(--accent);
+  color: #ffffff;
   font-weight: 700;
-  box-shadow: 0 16px 30px rgba(180, 79, 31, 0.22);
+  box-shadow: 0 12px 24px rgba(47, 111, 237, 0.18);
 }
 
 .primary-btn:hover,
@@ -238,16 +231,16 @@ body {
 
 .secondary-btn {
   padding: 11px 16px;
-  border: 1px solid rgba(117, 94, 71, 0.18);
-  background: rgba(255, 250, 242, 0.74);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.96);
   color: var(--ink);
   font-weight: 600;
 }
 
 .ghost-btn {
   padding: 8px 12px;
-  border: 1px solid rgba(117, 94, 71, 0.18);
-  background: transparent;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
   color: var(--muted);
   font-size: 13px;
   font-weight: 600;
@@ -291,10 +284,9 @@ body {
 .chat {
   /* Shared glass-panel treatment for sidebar panels and the main workspace. */
   background: var(--bg-soft);
-  border: 1px solid rgba(117, 94, 71, 0.14);
+  border: 1px solid var(--line);
   border-radius: var(--radius-xl);
   box-shadow: var(--panel-shadow);
-  backdrop-filter: blur(18px);
 }
 
 .panel {
@@ -354,9 +346,9 @@ body {
 .question-answer {
   /* Text inputs share the same soft field treatment as generated questions. */
   width: 100%;
-  border: 1px solid rgba(117, 94, 71, 0.18);
+  border: 1px solid var(--line);
   border-radius: 16px;
-  background: rgba(255, 251, 245, 0.88);
+  background: rgba(255, 255, 255, 0.98);
   padding: 14px 15px;
   color: var(--ink);
   font: inherit;
@@ -368,8 +360,8 @@ body {
 .field textarea:focus,
 .question-answer:focus {
   outline: none;
-  border-color: rgba(191, 90, 43, 0.55);
-  box-shadow: 0 0 0 4px rgba(191, 90, 43, 0.12);
+  border-color: rgba(47, 111, 237, 0.45);
+  box-shadow: 0 0 0 4px rgba(47, 111, 237, 0.12);
 }
 
 .summary-grid {
@@ -412,8 +404,8 @@ body {
 .metric-card {
   padding: 14px;
   border-radius: 18px;
-  background: rgba(255, 247, 238, 0.9);
-  border: 1px solid rgba(117, 94, 71, 0.14);
+  background: rgba(241, 247, 255, 0.96);
+  border: 1px solid var(--line);
 }
 
 .summary-footer {
@@ -436,8 +428,8 @@ body {
   justify-content: space-between;
   padding: 10px 12px;
   border-radius: 14px;
-  background: rgba(255, 247, 238, 0.9);
-  border: 1px solid rgba(117, 94, 71, 0.14);
+  background: rgba(241, 247, 255, 0.96);
+  border: 1px solid var(--line);
 }
 
 .doc-link {
@@ -496,23 +488,28 @@ body {
   gap: 10px;
   padding: 12px 14px;
   border-radius: 16px;
-  background: rgba(255, 247, 238, 0.9);
-  border: 1px solid rgba(117, 94, 71, 0.14);
+  background: rgba(241, 247, 255, 0.96);
+  border: 1px solid var(--line);
   color: var(--ink);
   font-weight: 600;
 }
 
 .chat {
   /*
-   * Main conversation/report surface. Its background is the large white panel
-   * behind dynamic cards. height: 100% fixes it to the available workspace
-   * height; overflow: visible lets long report content extend past that panel.
+   * Main conversation/report surface. Keep this container visually neutral so
+   * long reports are framed by their individual cards instead of one large
+   * background panel behind the whole workspace.
    */
   display: none;
   flex: 1;
-  min-height: 0;
-  height: 100%;
+  min-height: 100%;
+  height: auto;
   overflow: visible;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  padding: 0;
 }
 
 .messages {
@@ -532,7 +529,7 @@ body {
 .setup-column::-webkit-scrollbar-thumb,
 .workspace-column::-webkit-scrollbar-thumb,
 .chat::-webkit-scrollbar-thumb {
-  background: rgba(117, 94, 71, 0.28);
+  background: rgba(128, 151, 186, 0.45);
   border-radius: 999px;
 }
 
@@ -573,13 +570,13 @@ body {
 }
 
 .avatar.bot {
-  background: linear-gradient(135deg, #cb6a3c 0%, #b44f1f 100%);
-  color: #fff8f2;
+  background: var(--accent);
+  color: #ffffff;
 }
 
 .avatar.user {
-  background: #2e241f;
-  color: #fff7f2;
+  background: #183b73;
+  color: #ffffff;
 }
 
 .msg-body {
@@ -598,14 +595,14 @@ body {
 .doc-card,
 .query-card {
   border-radius: 22px;
-  border: 1px solid rgba(117, 94, 71, 0.14);
-  box-shadow: 0 16px 32px rgba(76, 49, 28, 0.08);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 24px rgba(44, 94, 170, 0.08);
 }
 
 .user-bubble {
   padding: 16px 18px;
-  background: linear-gradient(135deg, #2f251f 0%, #43352d 100%);
-  color: #fff7f2;
+  background: linear-gradient(180deg, #2b5fcb 0%, #1f57c3 100%);
+  color: #ffffff;
 }
 
 .user-bubble .message-title {
@@ -620,18 +617,18 @@ body {
    * report wrapper; .query-card is each executed SQL check; .message-card is
    * the generic status/question/finding wrapper.
    */
-  background: rgba(255, 251, 245, 0.94);
+  background: rgba(255, 255, 255, 0.98);
   padding: 18px;
 }
 
 .tone-error {
-  border-color: rgba(180, 35, 24, 0.22);
-  background: rgba(255, 244, 242, 0.95);
+  border-color: rgba(180, 35, 24, 0.18);
+  background: rgba(255, 245, 245, 0.98);
 }
 
 .tone-warn {
-  border-color: rgba(165, 103, 22, 0.18);
-  background: rgba(255, 248, 236, 0.96);
+  border-color: rgba(183, 121, 31, 0.18);
+  background: rgba(255, 250, 240, 0.98);
 }
 
 .message-title {
@@ -668,12 +665,12 @@ body {
 }
 
 .run-chip {
-  background: rgba(247, 220, 205, 0.65);
+  background: rgba(222, 235, 255, 0.92);
   color: var(--accent-strong);
 }
 
 .status-pill {
-  background: rgba(117, 94, 71, 0.1);
+  background: rgba(221, 231, 245, 0.9);
   color: var(--muted);
 }
 
@@ -699,7 +696,7 @@ body {
 
 .status-running,
 .status-submitted {
-  background: rgba(191, 90, 43, 0.12);
+  background: rgba(47, 111, 237, 0.12);
   color: var(--accent-strong);
 }
 
@@ -715,13 +712,14 @@ body {
   gap: 10px;
   padding: 16px;
   border-radius: 18px;
-  background: rgba(255, 247, 238, 0.92);
-  border: 1px solid rgba(117, 94, 71, 0.14);
+  background: rgba(244, 249, 255, 0.96);
+  border: 1px solid var(--line);
 }
 
 .question-index,
 .query-purpose,
 .query-meta,
+.query-support,
 .question-why,
 .finding-table {
   font-size: 13px;
@@ -734,8 +732,8 @@ body {
 
 .question-table {
   width: fit-content;
-  background: rgba(47, 37, 31, 0.08);
-  color: #46362d;
+  background: rgba(222, 235, 255, 0.92);
+  color: #244b87;
 }
 
 .finding-grid,
@@ -758,9 +756,9 @@ body {
   gap: 12px;
   padding: 18px;
   border-radius: 18px;
-  border: 1px solid rgba(117, 94, 71, 0.18);
-  background: rgba(255, 249, 243, 0.95);
-  box-shadow: 0 1px 0 rgba(117, 94, 71, 0.04), 0 8px 18px rgba(76, 49, 28, 0.05);
+  border: 1px solid var(--line);
+  background: rgba(249, 252, 255, 0.98);
+  box-shadow: 0 1px 0 rgba(44, 94, 170, 0.04), 0 8px 18px rgba(44, 94, 170, 0.05);
   min-width: 0;
   overflow: hidden;
 }
@@ -812,6 +810,13 @@ body {
   margin-bottom: 4px;
 }
 
+.query-support {
+  margin-top: 8px;
+  color: var(--accent-strong);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
 .query-card {
   /* Each executed QA check is self-contained: title, status, SQL, and result sample. */
   display: grid;
@@ -822,19 +827,19 @@ body {
   /* Dark code panel for generated SQL inside query cards. */
   border-radius: 18px;
   overflow: hidden;
-  border: 1px solid rgba(47, 37, 31, 0.1);
-  background: #2a2424;
+  border: 1px solid #16345c;
+  background: #132947;
 }
 
 .code-head {
   padding: 14px 16px;
-  background: rgba(28, 24, 24, 0.94);
-  color: #f2e7dc;
+  background: rgba(10, 27, 49, 0.96);
+  color: #eaf3ff;
 }
 
 .code-label {
   margin-top: 4px;
-  color: rgba(242, 231, 220, 0.72);
+  color: rgba(234, 243, 255, 0.76);
   font-size: 12px;
 }
 
@@ -842,23 +847,23 @@ body {
   margin: 0;
   padding: 16px;
   overflow-x: auto;
-  color: #f2e7dc;
+  color: #eaf3ff;
   font-family: 'IBM Plex Mono', 'Courier New', monospace;
   font-size: 12.5px;
   line-height: 1.7;
 }
 
-.sql-keyword { color: #f5b55d; }
-.sql-string { color: #9fe5d4; }
-.sql-comment { color: #b09890; font-style: italic; }
-.sql-number { color: #ffdf97; }
+.sql-keyword { color: #7ab6ff; }
+.sql-string { color: #8fe3cf; }
+.sql-comment { color: #8aa8cf; font-style: italic; }
+.sql-number { color: #c0d9ff; }
 
 .table-wrap {
   /* Horizontal scrolling is isolated to result tables, not the whole page. */
   overflow-x: auto;
-  border: 1px solid rgba(117, 94, 71, 0.14);
+  border: 1px solid var(--line);
   border-radius: 18px;
-  background: rgba(255, 252, 248, 0.9);
+  background: rgba(255, 255, 255, 0.98);
 }
 
 .data-table {
@@ -872,12 +877,12 @@ body {
 .data-table td {
   padding: 11px 14px;
   text-align: left;
-  border-bottom: 1px solid rgba(117, 94, 71, 0.12);
+  border-bottom: 1px solid var(--line);
   font-size: 13px;
 }
 
 .data-table th {
-  background: rgba(247, 220, 205, 0.42);
+  background: rgba(232, 241, 255, 0.96);
   color: var(--accent-strong);
   font-size: 11px;
   font-weight: 700;
@@ -898,7 +903,7 @@ body {
 .table-empty {
   padding: 14px 16px;
   border-radius: 16px;
-  background: rgba(47, 37, 31, 0.04);
+  background: rgba(240, 245, 252, 0.98);
 }
 
 .doc-head {
@@ -930,8 +935,8 @@ code.inline {
   display: inline-block;
   padding: 2px 7px;
   border-radius: 999px;
-  background: rgba(47, 37, 31, 0.08);
-  color: #3a2e27;
+  background: rgba(222, 235, 255, 0.92);
+  color: #244b87;
   font-family: 'IBM Plex Mono', 'Courier New', monospace;
   font-size: 0.92em;
 }
@@ -1041,7 +1046,7 @@ code.inline {
 }
 
 .run-item:hover {
-  background: #fff5e8;
+  background: #eef5ff;
   border-color: var(--accent-soft);
 }
 
@@ -1140,7 +1145,7 @@ code.inline {
   padding: 8px 10px;
   font-family: 'IBM Plex Sans', sans-serif;
   font-size: 13px;
-  background: #fff;
+  background: #ffffff;
   color: var(--ink);
 }
 
@@ -1181,7 +1186,7 @@ code.inline {
 }
 
 .markdown-body code {
-  background: rgba(117, 94, 71, 0.1) !important;
+  background: rgba(222, 235, 255, 0.92) !important;
   font-family: 'IBM Plex Mono', monospace !important;
 }
 
@@ -1206,7 +1211,7 @@ code.inline {
 }
 
 .markdown-body table tr:nth-child(2n) {
-  background: rgba(255, 247, 238, 0.5) !important;
+  background: rgba(241, 247, 255, 0.9) !important;
 }
 
 .markdown-body blockquote {

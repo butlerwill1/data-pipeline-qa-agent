@@ -72,6 +72,27 @@ panel behind the generated report cards.
 
 ## Run locally
 
+For a read-only UI that still loads Mongo-backed history and reports:
+
+```bash
+make ui
+```
+
+This starts the FastAPI web app in read-only mode and opens
+`http://127.0.0.1:8000`. Historical runs, findings, executed queries, and final
+reports still load through `/api`, but creating runs, submitting answers, and
+stop requests are disabled.
+
+For a pure static preview with no API or MongoDB connection at all:
+
+```bash
+make ui-static
+```
+
+This serves `chatbot-ui/` with Python's standard library static file server and
+opens `http://127.0.0.1:3000`. API-backed actions will show backend errors in
+this mode because `/api` is not running.
+
 Use the repo virtual environment, then start the FastAPI server:
 
 ```bash
