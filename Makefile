@@ -1,4 +1,4 @@
-.PHONY: setup demo daemon init real ui ui-static lint clean help
+.PHONY: setup demo daemon init real web ui ui-static lint clean help
 
 PYTHON_VERSION := 3.12
 PIPELINE := /Users/wbutler/Documents/Github/uk-smart-meter-data/src/transform_daily.py
@@ -16,6 +16,7 @@ help:
 	@echo "  make daemon   Start the Mongo-watching daemon (for the frontend)"
 	@echo "  make init     Create Mongo indexes"
 	@echo "  make real     Run the agent without DRY_RUN (needs LLM + AWS configured)"
+	@echo "  make web      Start the full web UI/API so you can submit runs from the browser"
 	@echo "  make ui       Start the read-only web UI with API-backed run history"
 	@echo "  make ui-static Open a static UI-only preview without API-backed history"
 	@echo "  make clean    Remove venv and caches"
@@ -60,6 +61,30 @@ real:
 
 daemon:
 	@export PATH="$$HOME/.local/bin:$$PATH" && uv run python -m src.daemon
+
+web:
+	@command -v python3 >/dev/null 2>&1 || { \
+		echo "python3 is required to launch the web app."; \
+		exit 1; \
+	}
+	@RUNNER=""; \
+	if command -v uv >/dev/null 2>&1; then \
+		RUNNER='uv run python'; \
+	elif [ -x .venv/bin/python ]; then \
+		RUNNER='.venv/bin/python'; \
+	else \
+		echo "No Python environment with project dependencies was found."; \
+		echo "Run 'make setup' first."; \
+		exit 1; \
+	fi; \
+	echo "Serving full web UI at $(WEB_URL)"; \
+	echo "Run submission, answers, and stop actions are enabled."; \
+	(sleep 1; python3 -m webbrowser "$(WEB_URL)" >/dev/null 2>&1 || true) & \
+	if [ "$$RUNNER" = "uv run python" ]; then \
+		export PATH="$$HOME/.local/bin:$$PATH" && uv run python -m src.webapp; \
+	else \
+		$$RUNNER -m src.webapp; \
+	fi
 
 ui:
 	@command -v python3 >/dev/null 2>&1 || { \
