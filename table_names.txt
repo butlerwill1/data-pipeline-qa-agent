@@ -1,7 +1,0 @@
-energy_smart_meter.silver_smart_meter_half_hourly_clean
-
-energy_smart_meter.gold_peak_demand_substation_day
-
-/Users/wbutler/Documents/Github/uk-smart-meter-data/energy-smart-meter-pipeline/src/transform_daily.py
-
-
