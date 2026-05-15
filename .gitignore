@@ -7,3 +7,4 @@ __pycache__/
 .mypy_cache/
 uv.lock
 .DS_Store
+backups/

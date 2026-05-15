@@ -51,7 +51,7 @@ flowchart LR
     Mongo["MongoDB Atlas<br/>runs, questions, answers,<br/>findings, reports, table memory,<br/>and graph checkpoints"]
     Glue["AWS Glue Catalog"]
     Athena["AWS Athena"]
-    LLM["Claude via Bedrock"]
+    LLM["Claude via OpenRouter API"]
     Voyage["Voyage AI Embeddings"]
     LangSmith["LangSmith Traces"]
 
@@ -124,7 +124,7 @@ flowchart TD
 
 ### Model and retrieval layer
 
-- **Anthropic Claude via Amazon Bedrock** for reasoning in real mode
+- **Anthropic Claude via OpenRouter** for reasoning in real mode
 - **Voyage AI embeddings** for retrieving relevant prior table understanding
 - **LangSmith** for observability and trace inspection
 
